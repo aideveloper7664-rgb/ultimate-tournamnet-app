@@ -13,6 +13,7 @@ import {
   serverTimestamp
 } from '../firebase';
 import { formatFullDateTime } from '../utils/helpers';
+import { notifyMessage } from '../utils/androidBridge';
 
 interface WorldChatModalProps {
   isOpen: boolean;
@@ -151,8 +152,11 @@ export const WorldChatModal: React.FC<WorldChatModalProps> = ({
       messageData.replyTo = replyContext;
     }
 
+    const senderName = messageData.displayName;
+
     try {
       await push(ref(db, 'chats/world'), messageData);
+      notifyMessage(senderName, messageText);
       setReplyContext(null);
       setShowEmojiPicker(false);
     } catch (err: any) {

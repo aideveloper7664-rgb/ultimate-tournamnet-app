@@ -13,6 +13,7 @@ import {
   serverTimestamp
 } from '../firebase';
 import { formatFullDateTime } from '../utils/helpers';
+import { notifyMessage } from '../utils/androidBridge';
 
 interface TournamentChatModalProps {
   tournament: Tournament | null;
@@ -143,8 +144,12 @@ export const TournamentChatModal: React.FC<TournamentChatModalProps> = ({
       messageData.replyTo = replyContext;
     }
 
+    const senderName = messageData.displayName;
+    const messageText = messageData.message;
+
     try {
       await push(ref(db, `chats/${tournament.id}`), messageData);
+      notifyMessage(senderName, messageText);
       setMessageInput('');
       setReplyContext(null);
     } catch (err: any) {
