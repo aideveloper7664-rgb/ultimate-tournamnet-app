@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { ChatMessage, ChatReplyContext } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { motion, useMotionValue, useTransform } from 'motion/react';
 import {
   ref,
   push,
@@ -19,6 +20,55 @@ interface WorldChatModalProps {
 }
 
 const QUICK_EMOJIS = ['🔥', '🎮', '🏆', '😂', '👍', '❤️', '💯', '🚀'];
+
+// SwipeToReply component for swipe-to-reply functionality
+const SwipeToReply: React.FC<{ children: React.ReactNode; onReply: () => void }> = ({ children, onReply }) => {
+  const x = useMotionValue(0);
+  const dragLimit = 70;
+  const iconOpacity = useTransform(x, [0, dragLimit - 20], [0, 1]);
+  const iconScale = useTransform(x, [0, dragLimit], [0.6, 1.15]);
+  const iconColor = useTransform(x, [0, dragLimit], ['#475569', '#f59e0b']);
+
+  const handleDragEnd = (_event: any, info: any) => {
+    if (info.offset.x > 45) {
+      onReply();
+    }
+  };
+
+  return (
+    <div className="position-relative d-flex align-items-center" style={{ overflow: 'visible', maxWidth: '100%' }}>
+      {/* Hidden reply icon behind the message that reveals upon swiping right */}
+      <motion.div
+        style={{
+          position: 'absolute',
+          left: '12px',
+          opacity: iconOpacity,
+          scale: iconScale,
+          color: iconColor,
+          zIndex: 0,
+          pointerEvents: 'none',
+        }}
+        className="d-flex align-items-center justify-content-center"
+      >
+        <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: '28px', height: '28px', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)' }}>
+          <i className="bi bi-reply-fill text-warning" style={{ fontSize: '1.1rem' }}></i>
+        </div>
+      </motion.div>
+
+      <motion.div
+        drag="x"
+        dragDirectionLock
+        dragConstraints={{ left: 0, right: dragLimit }}
+        dragSnapToOrigin={true}
+        dragElastic={{ left: 0, right: 0.25 }}
+        style={{ x, zIndex: 1, maxWidth: '100%' }}
+        onDragEnd={handleDragEnd}
+      >
+        {children}
+      </motion.div>
+    </div>
+  );
+};
 
 export const WorldChatModal: React.FC<WorldChatModalProps> = ({
   isOpen,
@@ -240,34 +290,36 @@ export const WorldChatModal: React.FC<WorldChatModalProps> = ({
                     </div>
                   )}
 
-                  <div
-                    className={`world-chat-bubble ${isMy ? 'bubble-outgoing' : 'bubble-incoming'}`}
-                    onClick={() => handleBubbleClick(msg)}
-                    title="Tap to reply"
-                  >
-                    {!isMy && (
-                      <div className="bubble-sender-name">
-                        <span>{senderName}</span>
-                        <span className="sender-badge">GAMER</span>
-                      </div>
-                    )}
-
-                    {msg.replyTo && (
-                      <div className="bubble-reply-preview">
-                        <div className="reply-sender">{msg.replyTo.originalSenderName}</div>
-                        <div className="reply-msg">{msg.replyTo.originalMessage}</div>
-                      </div>
-                    )}
-
-                    <div className="bubble-text">{msg.message}</div>
-
-                    <div className="bubble-footer">
-                      <span className="bubble-time">{formatFullDateTime(msg.timestamp)}</span>
-                      {isMy && (
-                        <i className="bi bi-check2-all text-info ms-1" style={{ fontSize: '0.85rem' }}></i>
+                  <SwipeToReply onReply={() => handleBubbleClick(msg)}>
+                    <div
+                      className={`world-chat-bubble ${isMy ? 'bubble-outgoing' : 'bubble-incoming'}`}
+                      onClick={() => handleBubbleClick(msg)}
+                      title="Swipe right to reply"
+                    >
+                      {!isMy && (
+                        <div className="bubble-sender-name">
+                          <span>{senderName}</span>
+                          <span className="sender-badge">GAMER</span>
+                        </div>
                       )}
+
+                      {msg.replyTo && (
+                        <div className="bubble-reply-preview">
+                          <div className="reply-sender">{msg.replyTo.originalSenderName}</div>
+                          <div className="reply-msg">{msg.replyTo.originalMessage}</div>
+                        </div>
+                      )}
+
+                      <div className="bubble-text">{msg.message}</div>
+
+                      <div className="bubble-footer">
+                        <span className="bubble-time">{formatFullDateTime(msg.timestamp)}</span>
+                        {isMy && (
+                          <i className="bi bi-check2-all text-info ms-1" style={{ fontSize: '0.85rem' }}></i>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  </SwipeToReply>
                 </div>
               );
             })}
