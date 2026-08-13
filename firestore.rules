@@ -1,0 +1,162 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // =====================================================================
+    // HELPER FUNCTIONS
+    // =====================================================================
+    
+    // Admin check: Looks for adminConfig/adminUid document
+    function isAdmin() {
+      let hasAdminDoc = exists(/databases/$(database)/documents/adminConfig/adminUid);
+      let adminDocUid = hasAdminDoc ? get(/databases/$(database)/documents/adminConfig/adminUid).data.uid : null;
+      let adminDocVal = hasAdminDoc ? get(/databases/$(database)/documents/adminConfig/adminUid).data.value : null;
+      return request.auth != null && (adminDocUid == request.auth.uid || adminDocVal == request.auth.uid);
+    }
+    
+    // Staff check: Looks for staff/{uid} document with status == 'active'
+    function isStaff() {
+      return request.auth != null && 
+             exists(/databases/$(database)/documents/staff/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.status == 'active';
+    }
+    
+    function isAdminOrStaff() {
+      return isAdmin() || isStaff();
+    }
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // =====================================================================
+    // PUBLIC / BASIC DATA
+    // =====================================================================
+    match /games/{document=**} {
+      allow read: if true;
+      allow write: if isAdminOrStaff();
+    }
+    
+    match /promotions/{document=**} {
+      allow read: if true;
+      allow write: if isAdminOrStaff();
+    }
+    
+    match /global/settings {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /settings/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /global/notifications {
+      allow read: if isAuthenticated();
+      allow write: if isAdminOrStaff();
+    }
+    match /notifications/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdminOrStaff();
+    }
+
+    // =====================================================================
+    // TOURNAMENTS
+    // =====================================================================
+    match /tournaments/{tournamentId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdminOrStaff();
+      
+      // Allow users to write their own registration data
+      match /registeredPlayers/{userId} {
+        allow read: if isAuthenticated();
+        allow write: if isOwner(userId) || isAdminOrStaff();
+      }
+      
+      // Allow users to book slots
+      match /slots/{slotId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated(); 
+      }
+    }
+    
+    // =====================================================================
+    // CHATS
+    // =====================================================================
+    match /chats/{chatId}/messages/{messageId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+    match /chats/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated(); 
+    }
+
+    // =====================================================================
+    // USERS
+    // =====================================================================
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) || isAdminOrStaff();
+      
+      match /notifications/{notifId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId) || isAdminOrStaff();
+      }
+      
+      match /{document=**} {
+        allow read: if isAuthenticated();
+        allow write: if isOwner(userId) || isAdminOrStaff();
+      }
+    }
+
+    // =====================================================================
+    // TRANSACTIONS
+    // =====================================================================
+    match /transactions/{userId}/history/{txId} {
+      allow read, write: if isOwner(userId) || isAdminOrStaff();
+    }
+    match /transactions/{userId} {
+      allow read, write: if isOwner(userId) || isAdminOrStaff();
+    }
+
+    // =====================================================================
+    // WITHDRAWALS / DEPOSITS / PENDING REFERRALS
+    // =====================================================================
+    match /withdrawals/{docId} {
+      allow read: if isAdminOrStaff() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdminOrStaff();
+    }
+    
+    match /deposits/{docId} {
+      allow read: if isAdminOrStaff() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdminOrStaff();
+    }
+    
+    match /pendingReferrals/{docId} {
+      allow read: if isAdminOrStaff() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdminOrStaff();
+    }
+
+    // =====================================================================
+    // STAFF & ADMIN
+    // =====================================================================
+    match /staff/{staffUid} {
+      allow read: if isAdmin() || isOwner(staffUid);
+      allow write: if isAdmin();
+    }
+
+    match /adminConfig/{docId} {
+      allow read: if true;
+      allow write: if isAdmin() || (isAuthenticated() && !exists(/databases/$(database)/documents/adminConfig/adminUid));
+    }
+  }
+}

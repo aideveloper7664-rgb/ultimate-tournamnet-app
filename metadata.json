@@ -1,0 +1,6 @@
+{
+  "name": "Gaming Tournament",
+  "description": "Full-featured eSports tournament platform with Firebase Authentication, Realtime Database, wallet management, slot selection, match history, and live chat.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
