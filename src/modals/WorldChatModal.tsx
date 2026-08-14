@@ -109,10 +109,18 @@ export const WorldChatModal: React.FC<WorldChatModalProps> = ({
         setLoading(false);
         const val = snapshot.val();
         if (val) {
+          const msg = { id: snapshot.key, ...val };
           setMessages(prev => {
             if (prev.some(m => m.id === snapshot.key)) return prev;
-            return [...prev, { id: snapshot.key, ...val }];
+            return [...prev, msg];
           });
+          
+          if (currentUser && msg.uid !== currentUser.uid) {
+            const isRecent = val.timestamp && (Date.now() - val.timestamp) < 15000;
+            if (isRecent) {
+              notifyMessage(msg.displayName || 'Gamer', msg.message);
+            }
+          }
         }
       },
       (err) => {
@@ -156,7 +164,12 @@ export const WorldChatModal: React.FC<WorldChatModalProps> = ({
 
     try {
       await push(ref(db, 'chats/world'), messageData);
-      notifyMessage(senderName, messageText);
+      
+      const msg = messageData;
+      if (msg.uid !== currentUser.uid) {
+        notifyMessage(senderName, messageText);
+      }
+      
       setReplyContext(null);
       setShowEmojiPicker(false);
     } catch (err: any) {

@@ -106,7 +106,15 @@ export const TournamentChatModal: React.FC<TournamentChatModalProps> = ({
         setLoading(false);
         const val = snapshot.val();
         if (val) {
+          const msg = { id: snapshot.key, ...val };
           setMessages(prev => [{ id: snapshot.key, ...val }, ...prev]);
+          
+          if (currentUser && msg.uid !== currentUser.uid) {
+            const isRecent = val.timestamp && (Date.now() - val.timestamp) < 15000;
+            if (isRecent) {
+              notifyMessage(msg.displayName || 'Gamer', msg.message);
+            }
+          }
         }
       },
       (err) => {
@@ -149,7 +157,12 @@ export const TournamentChatModal: React.FC<TournamentChatModalProps> = ({
 
     try {
       await push(ref(db, `chats/${tournament.id}`), messageData);
-      notifyMessage(senderName, messageText);
+      
+      const msg = messageData;
+      if (msg.uid !== currentUser.uid) {
+        notifyMessage(senderName, messageText);
+      }
+      
       setMessageInput('');
       setReplyContext(null);
     } catch (err: any) {

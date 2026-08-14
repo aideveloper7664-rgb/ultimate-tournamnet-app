@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { ref, get, query, orderByChild, equalTo, db } from '../firebase';
+import React, { useEffect, useState, useRef } from 'react';
+import { ref, query, orderByChild, equalTo, db } from '../firebase';
 import { Tournament } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { TournamentCard } from '../components/TournamentCard';
+import { notifyTournament } from '../utils/androidBridge';
+import { onValue } from 'firebase/database';
 
 interface TournamentsPageProps {
   onOpenDetails: (tournament: Tournament) => void;
@@ -22,37 +24,67 @@ export const TournamentsPage: React.FC<TournamentsPageProps> = ({
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  useEffect(() => {
-    const fetchTournaments = async () => {
-      if (!selectedGameId) {
-        setTournaments([]);
-        setLoading(false);
-        return;
-      }
+  const isInitialLoadRef = useRef(true);
+  const knownIdsRef = useRef<Set<string>>(new Set());
 
-      setLoading(true);
+  useEffect(() => {
+    isInitialLoadRef.current = true;
+    knownIdsRef.current = new Set();
+
+    if (!selectedGameId) {
+      setTournaments([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    const tQuery = query(ref(db, 'tournaments'), orderByChild('gameId'), equalTo(selectedGameId));
+
+    const unsubscribe = onValue(tQuery, (snapshot) => {
       try {
-        const tQuery = query(ref(db, 'tournaments'), orderByChild('gameId'), equalTo(selectedGameId));
-        const snapshot = await get(tQuery);
         if (snapshot.exists()) {
           const val = snapshot.val();
           const list: Tournament[] = Object.entries(val)
             .map(([id, t]: [string, any]) => ({ id, ...t }))
             .filter(t => t.status === activeTab)
             .sort((a, b) => (a.startTime || 0) - (b.startTime || 0));
+
+          // Notify for any newly added tournament that wasn't in our known IDs list (if not initial load)
+          if (!isInitialLoadRef.current) {
+            list.forEach(t => {
+              if (t.id && !knownIdsRef.current.has(t.id)) {
+                notifyTournament(t.name);
+              }
+            });
+          }
+
+          // Maintain our set of known tournament IDs
+          const nextIds = new Set<string>();
+          list.forEach(t => {
+            if (t.id) nextIds.add(t.id);
+          });
+          knownIdsRef.current = nextIds;
+
           setTournaments(list);
         } else {
           setTournaments([]);
+          knownIdsRef.current = new Set();
         }
       } catch (e) {
-        console.error(`Tournaments filter failed (${activeTab}):`, e);
+        console.error(`Tournaments realtime sync failed (${activeTab}):`, e);
         setTournaments([]);
       } finally {
         setLoading(false);
+        isInitialLoadRef.current = false;
       }
-    };
+    }, (error) => {
+      console.error("Tournaments realtime sync error:", error);
+      setLoading(false);
+    });
 
-    fetchTournaments();
+    return () => {
+      unsubscribe();
+    };
   }, [selectedGameId, activeTab]);
 
   return (
