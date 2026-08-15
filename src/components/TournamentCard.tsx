@@ -78,7 +78,6 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
 
   return (
     <div className="tournament-card" data-tournament-id={tId} data-status={status}>
-      <img src={bannerUrl} alt="Tournament Banner" className="tournament-banner-image" />
       <div className="tournament-card-content">
         <div className="tournament-card-header">
           <div className="tournament-card-tags">

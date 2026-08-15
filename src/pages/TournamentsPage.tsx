@@ -19,7 +19,7 @@ export const TournamentsPage: React.FC<TournamentsPageProps> = ({
   onOpenChat,
   onJoinClick
 }) => {
-  const { selectedGameId } = useAuth();
+  const { selectedGameId, currentUser, userProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<'upcoming' | 'ongoing' | 'completed'>('upcoming');
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -46,7 +46,14 @@ export const TournamentsPage: React.FC<TournamentsPageProps> = ({
           const val = snapshot.val();
           const list: Tournament[] = Object.entries(val)
             .map(([id, t]: [string, any]) => ({ id, ...t }))
-            .filter(t => t.status === activeTab)
+            .filter(t => {
+              const matchesStatus = t.status === activeTab;
+              const isJoined = Boolean(
+                (currentUser && userProfile?.joinedTournaments && userProfile.joinedTournaments[t.id]) ||
+                (currentUser?.uid && t.registeredPlayers && t.registeredPlayers[currentUser.uid])
+              );
+              return matchesStatus && isJoined;
+            })
             .sort((a, b) => (a.startTime || 0) - (b.startTime || 0));
 
           // Notify for any newly added tournament that wasn't in our known IDs list (if not initial load)
@@ -85,7 +92,7 @@ export const TournamentsPage: React.FC<TournamentsPageProps> = ({
     return () => {
       unsubscribe();
     };
-  }, [selectedGameId, activeTab]);
+  }, [selectedGameId, activeTab, currentUser, userProfile?.joinedTournaments]);
 
   return (
     <section id="tournaments-section" className="section active">

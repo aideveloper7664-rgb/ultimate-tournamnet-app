@@ -14,7 +14,7 @@ export const BottomNav: React.FC = () => {
 
   const getEffectiveSection = (sec: string) => {
     if (sec === 'tournaments-section') return 'home-section';
-    if (sec === 'recharge-section' || sec === 'earnings-section') return 'wallet-section';
+    if (sec === 'recharge-section') return 'wallet-section';
     return sec;
   };
 
@@ -23,7 +23,7 @@ export const BottomNav: React.FC = () => {
   const navItems = [
     { id: 'home-section', label: 'Home', icon: 'bi-grid-fill' },
     ...(currentUser ? [
-      { id: 'my-contests-section', label: 'Contests', icon: 'bi-controller' },
+      { id: 'earnings-section', label: 'Earnings', icon: 'bi-cash-stack' },
       { id: 'leaderboard-section', label: 'Ranks', icon: 'bi-trophy-fill' },
       { id: 'wallet-section', label: 'Wallet', icon: 'bi-wallet2' },
       { id: 'profile-section', label: 'Profile', icon: 'bi-person-circle' },

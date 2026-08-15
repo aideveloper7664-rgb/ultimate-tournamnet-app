@@ -1,167 +1,324 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
-import { ref, get, query, orderByChild, equalTo, db } from '../firebase';
-import { Transaction } from '../types';
+
+// SubViews
+import { SpinWinSubView } from '../components/earnings/subviews/SpinWinSubView';
+import { DailyCheckinSubView } from '../components/earnings/subviews/DailyCheckinSubView';
+import { ScratchWinSubView } from '../components/earnings/subviews/ScratchWinSubView';
+import { LuckyDrawSubView } from '../components/earnings/subviews/LuckyDrawSubView';
+import { DailyMissionsSubView } from '../components/earnings/subviews/DailyMissionsSubView';
+import { ReferEarnSubView } from '../components/earnings/subviews/ReferEarnSubView';
+import { PlayEarnSubView } from '../components/earnings/subviews/PlayEarnSubView';
+import { LeaderboardRewardsSubView } from '../components/earnings/subviews/LeaderboardRewardsSubView';
+import { LuckyCouponSubView } from '../components/earnings/subviews/LuckyCouponSubView';
+import { BonusZoneSubView } from '../components/earnings/subviews/BonusZoneSubView';
 
 export const EarningsPage: React.FC = () => {
-  const { currentUser, userProfile } = useAuth();
-  const [earningsTransactions, setEarningsTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const { userProfile } = useAuth();
+  // Dedicated in-page subview state for all 10 earning hubs
+  const [activeSubView, setActiveSubView] = useState<string | null>(null);
 
-  const totalEarnings = userProfile?.totalEarnings || 0;
-  const referralEarnings = userProfile?.referralEarnings || 0;
-  const tournamentEarnings = Math.max(0, totalEarnings - referralEarnings);
+  const earningModules = [
+    {
+      id: 'spin',
+      title: 'Spin & Win',
+      icon: '🎡',
+      badge: 'Daily Free',
+      badgeClass: 'bg-amber-500/20 text-amber-300 border border-amber-500/40',
+      iconBg: 'from-amber-500/20 to-yellow-600/10 border-amber-500/30 text-amber-400',
+      cardBg: 'from-amber-950/25 via-zinc-900/90 to-zinc-950',
+      borderColor: 'border-amber-500/20 hover:border-amber-400/60',
+      glowColor: 'group-hover:shadow-[0_0_20px_rgba(245,158,11,0.18)]',
+      reward: 'Win ₹100',
+      tagColor: 'text-amber-400'
+    },
+    {
+      id: 'daily_checkin',
+      title: 'Daily Streak',
+      icon: '🎁',
+      badge: 'Day 1 🔥',
+      badgeClass: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40',
+      iconBg: 'from-emerald-500/20 to-teal-600/10 border-emerald-500/30 text-emerald-400',
+      cardBg: 'from-emerald-950/25 via-zinc-900/90 to-zinc-950',
+      borderColor: 'border-emerald-500/20 hover:border-emerald-400/60',
+      glowColor: 'group-hover:shadow-[0_0_20px_rgba(16,185,129,0.18)]',
+      reward: 'Claim ₹50',
+      tagColor: 'text-emerald-400'
+    },
+    {
+      id: 'scratch',
+      title: 'Scratch Cards',
+      icon: '🧧',
+      badge: '2 Free',
+      badgeClass: 'bg-rose-500/20 text-rose-300 border border-rose-500/40',
+      iconBg: 'from-rose-500/20 to-pink-600/10 border-rose-500/30 text-rose-400',
+      cardBg: 'from-rose-950/25 via-zinc-900/90 to-zinc-950',
+      borderColor: 'border-rose-500/20 hover:border-rose-400/60',
+      glowColor: 'group-hover:shadow-[0_0_20px_rgba(244,63,94,0.18)]',
+      reward: 'Win ₹50',
+      tagColor: 'text-rose-400'
+    },
+    {
+      id: 'lucky_draw',
+      title: 'Lucky Draw',
+      icon: '🎯',
+      badge: 'Mega Pot',
+      badgeClass: 'bg-purple-500/20 text-purple-300 border border-purple-500/40',
+      iconBg: 'from-purple-500/20 to-indigo-600/10 border-purple-500/30 text-purple-400',
+      cardBg: 'from-purple-950/25 via-zinc-900/90 to-zinc-950',
+      borderColor: 'border-purple-500/20 hover:border-purple-400/60',
+      glowColor: 'group-hover:shadow-[0_0_20px_rgba(168,85,247,0.18)]',
+      reward: '₹10,000 Pot',
+      tagColor: 'text-purple-400'
+    },
+    {
+      id: 'missions',
+      title: 'Daily Missions',
+      icon: '🔥',
+      badge: '6 Tasks',
+      badgeClass: 'bg-orange-500/20 text-orange-300 border border-orange-500/40',
+      iconBg: 'from-orange-500/20 to-amber-600/10 border-orange-500/30 text-orange-400',
+      cardBg: 'from-orange-950/25 via-zinc-900/90 to-zinc-950',
+      borderColor: 'border-orange-500/20 hover:border-orange-400/60',
+      glowColor: 'group-hover:shadow-[0_0_20px_rgba(249,115,22,0.18)]',
+      reward: '₹75 Daily',
+      tagColor: 'text-orange-400'
+    },
+    {
+      id: 'refer',
+      title: 'Refer & Earn',
+      icon: '👥',
+      badge: 'Instant',
+      badgeClass: 'bg-blue-500/20 text-blue-300 border border-blue-500/40',
+      iconBg: 'from-blue-500/20 to-cyan-600/10 border-blue-500/30 text-blue-400',
+      cardBg: 'from-blue-950/25 via-zinc-900/90 to-zinc-950',
+      borderColor: 'border-blue-500/20 hover:border-blue-400/60',
+      glowColor: 'group-hover:shadow-[0_0_20px_rgba(59,130,246,0.18)]',
+      reward: '₹50/Invite',
+      tagColor: 'text-blue-400'
+    },
+    {
+      id: 'play_earn',
+      title: 'Play & Earn',
+      icon: '🎮',
+      badge: 'Mini Game',
+      badgeClass: 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40',
+      iconBg: 'from-indigo-500/20 to-violet-600/10 border-indigo-500/30 text-indigo-400',
+      cardBg: 'from-indigo-950/25 via-zinc-900/90 to-zinc-950',
+      borderColor: 'border-indigo-500/20 hover:border-indigo-400/60',
+      glowColor: 'group-hover:shadow-[0_0_20px_rgba(99,102,241,0.18)]',
+      reward: 'Win ₹15/Game',
+      tagColor: 'text-indigo-400'
+    },
+    {
+      id: 'leaderboard_rewards',
+      title: 'Leaderboard',
+      icon: '🏆',
+      badge: 'Weekly',
+      badgeClass: 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/40',
+      iconBg: 'from-yellow-500/20 to-amber-600/10 border-yellow-500/30 text-yellow-400',
+      cardBg: 'from-yellow-950/25 via-zinc-900/90 to-zinc-950',
+      borderColor: 'border-yellow-500/20 hover:border-yellow-400/60',
+      glowColor: 'group-hover:shadow-[0_0_20px_rgba(234,179,8,0.18)]',
+      reward: '₹15,000 Pool',
+      tagColor: 'text-yellow-400'
+    },
+    {
+      id: 'coupon',
+      title: 'Lucky Coupons',
+      icon: '🎟️',
+      badge: 'Promo',
+      badgeClass: 'bg-teal-500/20 text-teal-300 border border-teal-500/40',
+      iconBg: 'from-teal-500/20 to-emerald-600/10 border-teal-500/30 text-teal-400',
+      cardBg: 'from-teal-950/25 via-zinc-900/90 to-zinc-950',
+      borderColor: 'border-teal-500/20 hover:border-teal-400/60',
+      glowColor: 'group-hover:shadow-[0_0_20px_rgba(20,184,166,0.18)]',
+      reward: 'Free Drops',
+      tagColor: 'text-teal-400'
+    },
+    {
+      id: 'bonus_zone',
+      title: 'Bonus Zone',
+      icon: '💰',
+      badge: 'VIP Perk',
+      badgeClass: 'bg-amber-500/25 text-amber-300 border border-amber-400/50 font-black',
+      iconBg: 'from-amber-500/25 to-yellow-600/15 border-amber-500/40 text-amber-400',
+      cardBg: 'from-amber-950/30 via-zinc-900/90 to-zinc-950',
+      borderColor: 'border-amber-500/25 hover:border-yellow-300/80',
+      glowColor: 'group-hover:shadow-[0_0_20px_rgba(245,158,11,0.2)]',
+      reward: '100% Match',
+      tagColor: 'text-amber-400'
+    }
+  ];
 
-  useEffect(() => {
-    const fetchEarningsData = async () => {
-      if (!currentUser) {
-        setEarningsTransactions([]);
-        setLoading(false);
-        return;
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.03,
+        delayChildren: 0.01
       }
+    }
+  };
 
-      setLoading(true);
-      try {
-        const transRef = ref(db, `transactions/${currentUser.uid}`);
-        const snapshot = await get(transRef);
-        if (snapshot.exists()) {
-          const val = snapshot.val();
-          const list: Transaction[] = Object.values(val);
-          // Filter for credits / winnings / referrals
-          const earningsList = list.filter(item => 
-            item.type === 'win' || item.type === 'referral' || item.type === 'bonus' || (item.amount > 0 && item.type !== 'deposit')
-          );
-          earningsList.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-          setEarningsTransactions(earningsList);
-        } else {
-          setEarningsTransactions([]);
-        }
-      } catch (e) {
-        console.error("Error fetching earnings transactions:", e);
-      } finally {
-        setLoading(false);
+  const itemVariants = {
+    hidden: { opacity: 0, y: 10, scale: 0.98 },
+    show: { 
+      opacity: 1, 
+      y: 0, 
+      scale: 1,
+      transition: {
+        type: 'spring',
+        stiffness: 420,
+        damping: 26
       }
-    };
-
-    fetchEarningsData();
-  }, [currentUser]);
-
-  const filteredHistory = earningsTransactions;
+    }
+  };
 
   return (
-    <section id="earnings-section" className="section active px-3 py-2">
-      {/* Header & Title */}
-      <div className="d-flex align-items-center justify-content-between mb-3">
-        <div>
-          <h2 className="section-title mb-0 fs-4 fw-bold text-white">Earnings & Rewards</h2>
-          <p className="text-secondary small mb-0">Detailed breakdown of your tournament winnings and referrals</p>
-        </div>
-        <span className="badge bg-warning bg-opacity-25 text-warning px-2.5 py-1.5 rounded-pill fw-semibold small">
-          <i className="bi bi-graph-up-arrow me-1"></i>Live
-        </span>
-      </div>
-
-      {/* Hero Earnings Card */}
-      <div className="wallet-hero-card p-4 rounded-4 position-relative overflow-hidden mb-4" style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%)', border: '1px solid rgba(255,255,255,0.1)' }}>
-        <div className="wallet-hero-glow"></div>
-        <div className="d-flex align-items-center justify-content-between mb-2">
-          <span className="wallet-brand-title text-uppercase text-secondary" style={{ fontSize: '0.78rem', letterSpacing: '1px' }}>Total Lifetime Earnings</span>
-          <i className="bi bi-shield-check text-success fs-5"></i>
-        </div>
-        <h1 className="display-5 fw-bold text-white mb-3">
-          ₹ {totalEarnings.toFixed(2)}
-        </h1>
-        <div className="wallet-breakdown-grid pt-3 border-top border-secondary border-opacity-25">
-          <div className="breakdown-box bg-dark bg-opacity-50 p-3 rounded-3 border border-secondary border-opacity-15 d-flex align-items-center justify-content-between">
-            <div>
-              <span className="text-secondary small text-uppercase fw-semibold d-block mb-1" style={{ fontSize: '0.7rem', letterSpacing: '0.5px' }}>Tournaments</span>
-              <div className="amount text-white fw-bold fs-5">₹ {tournamentEarnings.toFixed(2)}</div>
-            </div>
-            <div className="breakdown-icon bg-info bg-opacity-15 text-info d-flex align-items-center justify-content-center rounded-2" style={{ width: '36px', height: '36px', fontSize: '1rem' }}>
-              <i className="bi bi-trophy-fill"></i>
-            </div>
-          </div>
-          <div className="breakdown-box bg-dark bg-opacity-50 p-3 rounded-3 border border-secondary border-opacity-15 d-flex align-items-center justify-content-between">
-            <div>
-              <span className="text-secondary small text-uppercase fw-semibold d-block mb-1" style={{ fontSize: '0.7rem', letterSpacing: '0.5px' }}>Referrals</span>
-              <div className="amount text-white fw-bold fs-5">₹ {referralEarnings.toFixed(2)}</div>
-            </div>
-            <div className="breakdown-icon bg-warning bg-opacity-15 text-warning d-flex align-items-center justify-content-center rounded-2" style={{ width: '36px', height: '36px', fontSize: '1rem' }}>
-              <i className="bi bi-people-fill"></i>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Referral Banner Widget */}
-      <div className="mb-4 p-3 rounded-4 bg-gradient border border-warning border-opacity-30 text-white position-relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #78350f 0%, #451a03 100%)' }}>
-        <div className="d-flex align-items-center justify-content-between">
-          <div>
-            <span className="badge bg-warning text-dark fw-bold px-2 py-0.5 rounded-pill small mb-1">Refer & Earn</span>
-            <h6 className="fw-bold mb-1">Get ₹50 for every friend</h6>
-            <p className="text-warning text-opacity-75 small mb-0">Share your invite link and earn lifetime commissions!</p>
-          </div>
-          <button 
-            className="btn btn-warning btn-sm fw-bold px-3 py-2 rounded-3 text-dark shadow-sm"
-            onClick={() => {
-              navigator.clipboard?.writeText('https://esports.app/invite/USER99');
-              const toast = document.createElement('div');
-              toast.className = 'position-fixed bottom-0 start-50 translate-middle-x mb-4 px-3 py-2 bg-dark text-warning border border-warning rounded-pill shadow-lg small z-3';
-              toast.innerHTML = '<i class="bi bi-clipboard-check me-1"></i> Referral Link Copied!';
-              document.body.appendChild(toast);
-              setTimeout(() => toast.remove(), 2500);
-            }}
+    <section id="earnings-section" className="section active px-3 py-2.5 pb-6">
+      <AnimatePresence mode="wait">
+        {activeSubView === null ? (
+          <motion.div
+            key="hub-grid"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6, scale: 0.98 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
           >
-            <i className="bi bi-share-fill me-1"></i> Invite
-          </button>
-        </div>
-      </div>
-
-
-
-      {/* Earnings Transaction List */}
-      <div className="custom-card p-0 overflow-hidden bg-dark bg-opacity-40 border border-secondary border-opacity-15 rounded-4">
-        <div className="p-3 border-bottom border-secondary border-opacity-15 d-flex justify-content-between align-items-center">
-          <span className="fw-bold small text-white"><i className="bi bi-list-columns-reverse me-2 text-warning"></i>Recent Payouts</span>
-          <span className="text-secondary small">{filteredHistory.length} Transactions</span>
-        </div>
-        <div className="divide-y divide-secondary divide-opacity-10">
-          {loading ? (
-            <div className="text-center py-5 text-secondary">
-              <div className="spinner-border spinner-border-sm text-warning me-2" role="status"></div>
-              Loading live earnings...
+            {/* Header */}
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="section-title mb-0 text-lg font-black text-white flex items-center gap-2 tracking-tight">
+                <span>Earning Hubs</span>
+                <span className="badge bg-amber-400 text-black text-[10px] font-black uppercase px-2 py-0.5 rounded-full shadow-sm">
+                  10 Hubs
+                </span>
+              </h2>
+              <span className="badge bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full text-[11px] font-semibold flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                Active
+              </span>
             </div>
-          ) : filteredHistory.length === 0 ? (
-            <div className="text-center py-5 text-secondary">
-              <i className="bi bi-receipt display-6 d-mb-2 text-secondary opacity-50 mb-2"></i>
-              <p className="small mb-0">No earnings or payouts recorded yet.</p>
-            </div>
-          ) : (
-            filteredHistory.map((item, idx) => {
-              const dateStr = item.timestamp ? new Date(item.timestamp).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recent';
-              const timeStr = item.timestamp ? new Date(item.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
-              const isReferral = item.type === 'referral';
-              return (
-                <div key={item.id || idx} className="p-3 d-flex align-items-center justify-content-between border-bottom border-secondary border-opacity-10">
-                  <div className="d-flex align-items-center gap-3">
-                    <div className={`rounded-circle p-2.5 d-flex align-items-center justify-content-center ${!isReferral ? 'bg-info bg-opacity-15 text-info' : 'bg-warning bg-opacity-15 text-warning'}`} style={{ width: '40px', height: '40px' }}>
-                      <i className={`bi ${!isReferral ? 'bi-trophy' : 'bi-people'} fs-5`}></i>
-                    </div>
-                    <div>
-                      <h6 className="mb-0 text-white fw-bold small">{item.description || (isReferral ? 'Referral Reward' : 'Tournament Winning')}</h6>
-                      <p className="text-secondary mb-0" style={{ fontSize: '0.75rem' }}>{dateStr} {timeStr ? `• ${timeStr}` : ''}</p>
-                    </div>
-                  </div>
-                  <div className="text-end">
-                    <div className="fw-bold text-success fs-6">+ ₹ {Number(item.amount || 0).toFixed(2)}</div>
-                    <span className="badge bg-success bg-opacity-15 text-success px-2 py-0.5 rounded-pill" style={{ fontSize: '0.7rem' }}>Credited</span>
-                  </div>
+
+            {/* Quick Balance Vault Pill */}
+            <motion.div 
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25 }}
+              className="p-3 mb-3.5 rounded-2xl bg-zinc-900/90 border border-amber-500/25 flex items-center justify-between shadow-md relative overflow-hidden"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                  <i className="bi bi-wallet2 text-base"></i>
                 </div>
-              );
-            })
-          )}
-        </div>
-      </div>
+                <div>
+                  <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block leading-none mb-1">Balance</span>
+                  <span className="text-white font-black text-sm tracking-tight">₹{userProfile?.balance?.toFixed(2) || '0.00'}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 bg-black/40 px-2.5 py-1 rounded-xl border border-white/5">
+                <span className="text-[10px] text-gray-400 font-medium">Bonus:</span>
+                <span className="text-amber-400 font-black text-xs">
+                  ₹{userProfile?.bonusCash?.toFixed(2) || '0.00'}
+                </span>
+              </div>
+            </motion.div>
+
+            {/* 10 Earning Hubs Grid - Clean & Native */}
+            <motion.div 
+              variants={containerVariants}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-2 gap-2.5 mb-2"
+            >
+              {earningModules.map((mod) => (
+                <motion.div
+                  key={mod.id}
+                  variants={itemVariants}
+                  whileHover={{ y: -2, scale: 1.015 }}
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => setActiveSubView(mod.id)}
+                  className={`p-3 rounded-2xl bg-gradient-to-b ${mod.cardBg} border ${mod.borderColor} ${mod.glowColor} cursor-pointer transition-all duration-150 shadow-sm flex flex-col justify-between relative overflow-hidden group select-none`}
+                  style={{ minHeight: '115px' }}
+                >
+                  {/* Top Row: Icon & Badge */}
+                  <div className="flex items-center justify-between gap-1 mb-2">
+                    <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${mod.iconBg} border flex items-center justify-center text-base shadow-sm group-hover:scale-105 transition-transform duration-150`}>
+                      {mod.icon}
+                    </div>
+                    <span className={`badge ${mod.badgeClass} text-[9px] font-bold uppercase px-2 py-0.5 rounded-full`}>
+                      {mod.badge}
+                    </span>
+                  </div>
+
+                  {/* Clean Title */}
+                  <div className="my-1">
+                    <h6 className="text-white font-bold text-[13px] mb-0 tracking-tight group-hover:text-amber-300 transition-colors">
+                      {mod.title}
+                    </h6>
+                  </div>
+
+                  {/* Bottom: Native Action Row */}
+                  <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px]">
+                    <span className={`${mod.tagColor} font-black text-xs`}>
+                      {mod.reward}
+                    </span>
+                    <span className="text-gray-400 group-hover:text-white font-semibold text-[10px] flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
+                      Open <i className="bi bi-chevron-right text-[9px]"></i>
+                    </span>
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+          </motion.div>
+        ) : (
+          /* Dedicated In-Page SubView Screen with Smooth Slide/Fade Transition */
+          <motion.div 
+            key="hub-subview"
+            initial={{ opacity: 0, x: 20, scale: 0.99 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: -20, scale: 0.99 }}
+            transition={{ duration: 0.24, ease: 'easeOut' }}
+            className="w-full"
+          >
+            {activeSubView === 'spin' && (
+              <SpinWinSubView onBack={() => setActiveSubView(null)} />
+            )}
+            {activeSubView === 'daily_checkin' && (
+              <DailyCheckinSubView onBack={() => setActiveSubView(null)} />
+            )}
+            {activeSubView === 'scratch' && (
+              <ScratchWinSubView onBack={() => setActiveSubView(null)} />
+            )}
+            {activeSubView === 'lucky_draw' && (
+              <LuckyDrawSubView onBack={() => setActiveSubView(null)} />
+            )}
+            {activeSubView === 'missions' && (
+              <DailyMissionsSubView 
+                onBack={() => setActiveSubView(null)} 
+                onNavigateHub={(id) => setActiveSubView(id)}
+              />
+            )}
+            {activeSubView === 'refer' && (
+              <ReferEarnSubView onBack={() => setActiveSubView(null)} />
+            )}
+            {activeSubView === 'play_earn' && (
+              <PlayEarnSubView onBack={() => setActiveSubView(null)} />
+            )}
+            {activeSubView === 'leaderboard_rewards' && (
+              <LeaderboardRewardsSubView onBack={() => setActiveSubView(null)} />
+            )}
+            {activeSubView === 'coupon' && (
+              <LuckyCouponSubView onBack={() => setActiveSubView(null)} />
+            )}
+            {activeSubView === 'bonus_zone' && (
+              <BonusZoneSubView onBack={() => setActiveSubView(null)} />
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 };

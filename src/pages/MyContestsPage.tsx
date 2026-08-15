@@ -45,7 +45,7 @@ export const MyContestsPage: React.FC<MyContestsPageProps> = ({
         snapshots.forEach((snap, idx) => {
           if (snap.exists()) {
             const t = snap.val();
-            if (t.status === 'upcoming' || t.status === 'ongoing') {
+            if (t.status === 'upcoming' || t.status === 'ongoing' || t.status === 'completed' || t.status === 'result') {
               list.push({ id: joinedIds[idx], ...t });
             }
           }

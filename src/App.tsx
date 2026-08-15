@@ -113,7 +113,14 @@ const AppContent: React.FC = () => {
         ) : (
           <>
             {currentSection === 'login-section' && <AuthPage />}
-            {currentSection === 'home-section' && <HomePage />}
+            {currentSection === 'home-section' && (
+              <HomePage
+                onOpenDetails={handleOpenDetails}
+                onOpenIdPass={handleOpenIdPass}
+                onOpenChat={handleOpenChat}
+                onJoinClick={handleJoinClick}
+              />
+            )}
             {currentSection === 'my-contests-section' && (
               <MyContestsPage
                 onOpenDetails={handleOpenDetails}
