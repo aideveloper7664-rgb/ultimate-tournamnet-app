@@ -204,23 +204,23 @@ export const EarningsPage: React.FC = () => {
 
             {/* Quick Balance Vault Pill */}
             <motion.div 
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25 }}
-              className="p-3 mb-3.5 rounded-2xl bg-zinc-900/90 border border-amber-500/25 flex items-center justify-between shadow-md relative overflow-hidden"
+              transition={{ duration: 0.2 }}
+              className="px-3 py-2 mb-3 rounded-xl bg-zinc-900/80 border border-white/10 flex items-center justify-between shadow-sm relative overflow-hidden backdrop-blur-sm"
             >
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
-                  <i className="bi bi-wallet2 text-base"></i>
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-amber-400 text-xs">
+                  <i className="bi bi-wallet2"></i>
                 </div>
-                <div>
-                  <span className="text-[10px] text-gray-400 uppercase font-bold tracking-wider block leading-none mb-1">Balance</span>
-                  <span className="text-white font-black text-sm tracking-tight">₹{userProfile?.balance?.toFixed(2) || '0.00'}</span>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-[11px] text-gray-400 font-medium">Balance:</span>
+                  <span className="text-white font-black text-xs tracking-tight">₹{userProfile?.balance?.toFixed(2) || '0.00'}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 bg-black/40 px-2.5 py-1 rounded-xl border border-white/5">
+              <div className="flex items-center gap-1.5 bg-white/5 px-2 py-0.5 rounded-lg border border-white/5">
                 <span className="text-[10px] text-gray-400 font-medium">Bonus:</span>
-                <span className="text-amber-400 font-black text-xs">
+                <span className="text-amber-400 font-bold text-[11px]">
                   ₹{userProfile?.bonusCash?.toFixed(2) || '0.00'}
                 </span>
               </div>
