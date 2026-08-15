@@ -27,8 +27,11 @@ import { MatchHistoryModal } from './modals/MatchHistoryModal';
 import { TournamentChatModal } from './modals/TournamentChatModal';
 import { WorldChatModal } from './modals/WorldChatModal';
 import { EditNameModal } from './modals/EditNameModal';
+import { PlayerStatsModal } from './modals/PlayerStatsModal';
+import { CustomerSupportModal } from './modals/CustomerSupportModal';
 import { AiSupportModal } from './modals/AiSupportModal';
 import { DirectSupportModal } from './modals/DirectSupportModal';
+import { P2PTransferModal } from './modals/P2PTransferModal';
 import { FloatingSupportFAB } from './components/FloatingSupportFAB';
 
 import { Tournament } from './types';
@@ -52,10 +55,13 @@ const AppContent: React.FC = () => {
   const [selectedSlots, setSelectedSlots] = useState<(string | number)[]>([]);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isMatchHistoryOpen, setIsMatchHistoryOpen] = useState(false);
+  const [isPlayerStatsOpen, setIsPlayerStatsOpen] = useState(false);
+  const [isCustomerSupportOpen, setIsCustomerSupportOpen] = useState(false);
   const [isWorldChatOpen, setIsWorldChatOpen] = useState(false);
   const [isEditNameOpen, setIsEditNameOpen] = useState(false);
   const [isAiSupportOpen, setIsAiSupportOpen] = useState(false);
   const [isDirectSupportOpen, setIsDirectSupportOpen] = useState(false);
+  const [isP2PTransferOpen, setIsP2PTransferOpen] = useState(false);
 
   // Tournament Action Handlers
   const handleOpenDetails = (tournament: Tournament) => {
@@ -128,6 +134,7 @@ const AppContent: React.FC = () => {
               <WalletPage
                 onOpenWithdrawMethod={() => setIsWithdrawMethodOpen(true)}
                 onStartRecharge={() => showSection('recharge-section')}
+                onOpenP2PTransfer={() => setIsP2PTransferOpen(true)}
               />
             )}
             {currentSection === 'recharge-section' && <RechargePage />}
@@ -137,8 +144,11 @@ const AppContent: React.FC = () => {
               <ProfilePage
                 onOpenEditName={() => setIsEditNameOpen(true)}
                 onOpenMatchHistory={() => setIsMatchHistoryOpen(true)}
+                onOpenPlayerStats={() => setIsPlayerStatsOpen(true)}
+                onOpenCustomerSupport={() => setIsCustomerSupportOpen(true)}
                 onOpenChangePassword={() => setIsChangePasswordOpen(true)}
                 onOpenPolicy={(type) => setPolicyType(type)}
+                onOpenP2PTransfer={() => setIsP2PTransferOpen(true)}
               />
             )}
           </>
@@ -213,6 +223,16 @@ const AppContent: React.FC = () => {
         onClose={() => setIsMatchHistoryOpen(false)}
       />
 
+      <PlayerStatsModal
+        isOpen={isPlayerStatsOpen}
+        onClose={() => setIsPlayerStatsOpen(false)}
+      />
+
+      <CustomerSupportModal
+        isOpen={isCustomerSupportOpen}
+        onClose={() => setIsCustomerSupportOpen(false)}
+      />
+
       <TournamentChatModal
         isOpen={!!selectedTournamentForChat}
         tournament={selectedTournamentForChat}
@@ -249,6 +269,12 @@ const AppContent: React.FC = () => {
       <DirectSupportModal
         isOpen={isDirectSupportOpen}
         onClose={() => setIsDirectSupportOpen(false)}
+      />
+
+      {/* P2P Wallet Transfer & History Modal */}
+      <P2PTransferModal
+        isOpen={isP2PTransferOpen}
+        onClose={() => setIsP2PTransferOpen(false)}
       />
     </div>
   );

@@ -9,6 +9,7 @@ export interface UserProfile {
   bonusCash: number;
   totalMatches: number;
   wonMatches: number;
+  totalKills?: number;
   totalEarnings: number;
   referralEarnings: number;
   createdAt: number | object;
@@ -149,12 +150,30 @@ export interface MatchHistoryItem {
   earnings?: number;
 }
 
+export interface P2PTransfer {
+  id?: string;
+  senderUid: string;
+  senderEmail: string;
+  senderName: string;
+  receiverUid: string;
+  receiverEmail: string;
+  receiverName: string;
+  grossAmount: number;
+  feePercent: number;
+  feeAmount: number;
+  netAmount: number;
+  timestamp: number | object;
+  status: 'completed' | 'failed';
+  note?: string;
+}
+
 export interface AppSettings {
   logoUrl?: string;
   splashLogoUrl?: string;
   minWithdraw?: number;
   signupBonus?: number;
   referralBonus?: number;
+  transferFeePercent?: number;
   supportContact?: string;
   developerContact?: string;
   upiDetails?: string;

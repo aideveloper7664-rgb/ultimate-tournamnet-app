@@ -50,6 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     minWithdraw: 50,
     signupBonus: 10,
     referralBonus: 5,
+    transferFeePercent: 10,
     supportContact: '9389660753',
     developerContact: '9848988740',
     upiDetails: '9848988740',

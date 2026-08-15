@@ -1,19 +1,26 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { uploadImageToImgBB, ref, update, db } from '../firebase';
+import { uploadImageToImgBB, ref, update, db, get } from '../firebase';
+import { MatchHistoryItem } from '../types';
 
 interface ProfilePageProps {
   onOpenEditName: () => void;
   onOpenMatchHistory: () => void;
+  onOpenPlayerStats: () => void;
+  onOpenCustomerSupport: () => void;
   onOpenChangePassword: () => void;
   onOpenPolicy: (type: 'privacy' | 'terms' | 'refund' | 'fairPlay' | 'refer') => void;
+  onOpenP2PTransfer?: () => void;
 }
 
 export const ProfilePage: React.FC<ProfilePageProps> = ({
   onOpenEditName,
   onOpenMatchHistory,
+  onOpenPlayerStats,
+  onOpenCustomerSupport,
   onOpenChangePassword,
-  onOpenPolicy
+  onOpenPolicy,
+  onOpenP2PTransfer
 }) => {
   const { currentUser, userProfile, appSettings, logout, reloadUserProfile, themeMode, toggleTheme } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -21,6 +28,25 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [promoCode, setPromoCode] = React.useState('');
   const [promoMessage, setPromoMessage] = React.useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [applyingPromo, setApplyingPromo] = React.useState(false);
+  const [totalKillsCount, setTotalKillsCount] = useState<number>(userProfile?.totalKills || 0);
+
+  useEffect(() => {
+    const fetchKills = async () => {
+      if (!currentUser) return;
+      try {
+        const historyRef = ref(db, `users/${currentUser.uid}/matchHistory`);
+        const snapshot = await get(historyRef);
+        if (snapshot.exists()) {
+          const list: MatchHistoryItem[] = Object.values(snapshot.val());
+          const killsSum = list.reduce((acc, m) => acc + (Number(m.kills) || 0), 0);
+          setTotalKillsCount(Math.max(killsSum, userProfile?.totalKills || 0));
+        }
+      } catch (err) {
+        console.warn("Could not fetch user kills count:", err);
+      }
+    };
+    fetchKills();
+  }, [currentUser, userProfile?.totalKills]);
 
   const handleApplyPromo = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,6 +71,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const wonMatches = userProfile?.wonMatches || 0;
   const totalEarnings = userProfile?.totalEarnings || 0;
   const winRate = totalMatches > 0 ? ((wonMatches / totalMatches) * 100).toFixed(0) : '0';
+  const avgKillsPerMatch = totalMatches > 0 ? (totalKillsCount / totalMatches).toFixed(1) : '0';
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
@@ -63,19 +90,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       console.error("Profile picture upload failed:", error);
       alert(`Error: ${error.message}`);
     }
-  };
-
-  const handleContactUs = () => {
-    const contactNumber = appSettings.supportContact || '9389660753';
-    const message = `Hello Sir I Am ${displayName} I need your help.`;
-    const whatsappUrl = `https://wa.me/${contactNumber}?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, '_blank');
-  };
-
-  const handleDeveloperContact = () => {
-    const devNumber = appSettings.developerContact || '9848988740';
-    const whatsappUrl = `https://wa.me/${devNumber}?text=${encodeURIComponent("Hello Developer!")}`;
-    window.open(whatsappUrl, '_blank');
   };
 
   const requestNotificationPermission = () => {
@@ -272,6 +286,40 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
             <div
               className="native-list-item interactive"
+              onClick={onOpenP2PTransfer}
+            >
+              <div className="item-left">
+                <div className="item-icon-circle icon-bg-yellow" style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#F59E0B' }}>
+                  <i className="bi bi-send-fill"></i>
+                </div>
+                <div className="item-text">
+                  <span className="item-title">Send & Receive Cash (P2P)</span>
+                  <span className="item-sub">Transfer wallet money to friends via Gmail</span>
+                </div>
+              </div>
+              <span className="badge bg-warning text-dark font-mono me-1">{appSettings.transferFeePercent ?? 10}% FEE</span>
+              <i className="bi bi-chevron-right chevron-icon"></i>
+            </div>
+
+            <div
+              className="native-list-item interactive"
+              onClick={onOpenPlayerStats}
+            >
+              <div className="item-left">
+                <div className="item-icon-circle icon-bg-yellow">
+                  <i className="bi bi-graph-up-arrow"></i>
+                </div>
+                <div className="item-text">
+                  <span className="item-title">Player Stats & Analytics</span>
+                  <span className="item-sub">Kills, win rate, performance graphs</span>
+                </div>
+              </div>
+              <span className="badge bg-warning text-dark font-mono me-1">STATS</span>
+              <i className="bi bi-chevron-right chevron-icon"></i>
+            </div>
+
+            <div
+              className="native-list-item interactive"
               onClick={onOpenMatchHistory}
             >
               <div className="item-left">
@@ -329,33 +377,18 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
             <div
               className="native-list-item interactive"
-              onClick={handleContactUs}
+              onClick={onOpenCustomerSupport}
             >
               <div className="item-left">
-                <div className="item-icon-circle icon-bg-green">
-                  <i className="bi bi-whatsapp"></i>
+                <div className="item-icon-circle icon-bg-green" style={{ background: 'rgba(37, 211, 102, 0.15)', color: '#25D366' }}>
+                  <i className="bi bi-headset"></i>
                 </div>
                 <div className="item-text">
-                  <span className="item-title">WhatsApp Customer Support</span>
-                  <span className="item-sub">24/7 Live help line</span>
+                  <span className="item-title">Customer Support</span>
+                  <span className="item-sub">Telegram, Instagram, WhatsApp, YouTube, FB & TikTok</span>
                 </div>
               </div>
-              <i className="bi bi-chevron-right chevron-icon"></i>
-            </div>
-
-            <div
-              className="native-list-item interactive"
-              onClick={handleDeveloperContact}
-            >
-              <div className="item-left">
-                <div className="item-icon-circle icon-bg-pink">
-                  <i className="bi bi-code-slash"></i>
-                </div>
-                <div className="item-text">
-                  <span className="item-title">Developer Desk</span>
-                  <span className="item-sub">Direct technical contact</span>
-                </div>
-              </div>
+              <span className="badge bg-success-subtle text-success border border-success-subtle font-mono me-1">24/7</span>
               <i className="bi bi-chevron-right chevron-icon"></i>
             </div>
 

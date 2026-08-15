@@ -6,11 +6,13 @@ import { useAuth } from '../context/AuthContext';
 interface WalletPageProps {
   onOpenWithdrawMethod: () => void;
   onStartRecharge: () => void;
+  onOpenP2PTransfer?: () => void;
 }
 
 export const WalletPage: React.FC<WalletPageProps> = ({
   onOpenWithdrawMethod,
-  onStartRecharge
+  onStartRecharge,
+  onOpenP2PTransfer
 }) => {
   const { currentUser, userProfile, showSection } = useAuth();
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
@@ -113,18 +115,18 @@ export const WalletPage: React.FC<WalletPageProps> = ({
 
 
 
-        <div className="wallet-actions mt-4">
+        <div className="wallet-actions mt-4 d-flex gap-2">
           <button
-            className="btn btn-custom btn-action btn-add-money shadow-sm"
+            className="btn btn-custom btn-action btn-add-money shadow-sm flex-fill"
             onClick={onStartRecharge}
           >
-            <i className="bi bi-plus-circle-fill me-2 fs-5 align-middle"></i>Add Money
+            <i className="bi bi-plus-circle-fill me-1.5 fs-5 align-middle"></i>Add Cash
           </button>
           <button
-            className="btn btn-custom btn-action btn-withdraw-money shadow-sm"
+            className="btn btn-custom btn-action btn-withdraw-money shadow-sm flex-fill"
             onClick={onOpenWithdrawMethod}
           >
-            <i className="bi bi-arrow-up-right-circle-fill me-2 fs-5 align-middle"></i>Withdraw
+            <i className="bi bi-arrow-up-right-circle-fill me-1.5 fs-5 align-middle"></i>Withdraw
           </button>
         </div>
       </div>
