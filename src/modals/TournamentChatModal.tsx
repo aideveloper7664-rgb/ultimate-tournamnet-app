@@ -13,7 +13,6 @@ import {
   serverTimestamp
 } from '../firebase';
 import { formatFullDateTime } from '../utils/helpers';
-import { notifyMessage } from '../utils/androidBridge';
 
 interface TournamentChatModalProps {
   tournament: Tournament | null;
@@ -108,13 +107,6 @@ export const TournamentChatModal: React.FC<TournamentChatModalProps> = ({
         if (val) {
           const msg = { id: snapshot.key, ...val };
           setMessages(prev => [{ id: snapshot.key, ...val }, ...prev]);
-          
-          if (currentUser && msg.uid !== currentUser.uid) {
-            const isRecent = val.timestamp && (Date.now() - val.timestamp) < 15000;
-            if (isRecent) {
-              notifyMessage(msg.displayName || 'Gamer', msg.message);
-            }
-          }
         }
       },
       (err) => {
@@ -157,11 +149,6 @@ export const TournamentChatModal: React.FC<TournamentChatModalProps> = ({
 
     try {
       await push(ref(db, `chats/${tournament.id}`), messageData);
-      
-      const msg = messageData;
-      if (msg.uid !== currentUser.uid) {
-        notifyMessage(senderName, messageText);
-      }
       
       setMessageInput('');
       setReplyContext(null);

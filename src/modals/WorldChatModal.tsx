@@ -13,7 +13,6 @@ import {
   serverTimestamp
 } from '../firebase';
 import { formatFullDateTime } from '../utils/helpers';
-import { notifyMessage } from '../utils/androidBridge';
 
 interface WorldChatModalProps {
   isOpen: boolean;
@@ -114,13 +113,6 @@ export const WorldChatModal: React.FC<WorldChatModalProps> = ({
             if (prev.some(m => m.id === snapshot.key)) return prev;
             return [...prev, msg];
           });
-          
-          if (currentUser && msg.uid !== currentUser.uid) {
-            const isRecent = val.timestamp && (Date.now() - val.timestamp) < 15000;
-            if (isRecent) {
-              notifyMessage(msg.displayName || 'Gamer', msg.message);
-            }
-          }
         }
       },
       (err) => {
@@ -164,11 +156,6 @@ export const WorldChatModal: React.FC<WorldChatModalProps> = ({
 
     try {
       await push(ref(db, 'chats/world'), messageData);
-      
-      const msg = messageData;
-      if (msg.uid !== currentUser.uid) {
-        notifyMessage(senderName, messageText);
-      }
       
       setReplyContext(null);
       setShowEmojiPicker(false);

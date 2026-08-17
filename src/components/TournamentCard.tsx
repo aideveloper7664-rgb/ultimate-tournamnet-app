@@ -9,6 +9,7 @@ interface TournamentCardProps {
   onOpenIdPass: (tournament: Tournament) => void;
   onOpenChat: (tournament: Tournament) => void;
   onJoinClick: (tournament: Tournament) => void;
+  onOpenSlots?: (tournament: Tournament) => void;
 }
 
 export const TournamentCard: React.FC<TournamentCardProps> = ({
@@ -16,7 +17,8 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
   onOpenDetails,
   onOpenIdPass,
   onOpenChat,
-  onJoinClick
+  onJoinClick,
+  onOpenSlots
 }) => {
   const { currentUser, userProfile } = useAuth();
   const [timerText, setTimerText] = useState<string>('');
@@ -32,12 +34,15 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
   
   const regP = tournament.registeredPlayers || {};
   const regC = Object.keys(regP).length;
-  const maxP = tournament.maxPlayers || 0;
-  const spotsL = maxP > 0 ? Math.max(0, maxP - regC) : Infinity;
+  // Intelligent fallback for max players if not set
+  const maxP = tournament.maxPlayers > 0 ? tournament.maxPlayers : 48;
+  const spotsL = Math.max(0, maxP - regC);
   const isFull = maxP > 0 && spotsL <= 0;
   
   const isJoined = !!(currentUser && userProfile?.joinedTournaments?.[tId]);
-  const hasSlots = tournament.slotConfig && tournament.slotConfig.type !== 'disabled';
+  const userRegistration = currentUser ? regP[currentUser.uid] : null;
+  const userSlots = userRegistration?.slots || [];
+
   const canJoin = !isJoined && !isFull && status === 'upcoming';
 
   useEffect(() => {
@@ -58,12 +63,8 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
     return () => clearInterval(interval);
   }, [status, tournament.startTime]);
 
-  let spotsTxt = 'Unlimited Spots';
-  let progP = 0;
-  if (maxP > 0) {
-    spotsTxt = `${spotsL} Spots Left (${regC}/${maxP})`;
-    progP = Math.min(100, (regC / maxP) * 100);
-  }
+  const spotsTxt = `${spotsL} Slots Open (${regC}/${maxP})`;
+  const progP = Math.min(100, (regC / maxP) * 100);
 
   const tagsList = Array.isArray(tournament.tags)
     ? tournament.tags
@@ -76,8 +77,17 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
     (status === 'upcoming' && tournament.showIdPass && sTime && Date.now() > sTime.getTime() - 900000)
   );
 
+  const handleSlotBookingTrigger = () => {
+    if (onOpenSlots) {
+      onOpenSlots(tournament);
+    } else {
+      onJoinClick(tournament);
+    }
+  };
+
   return (
     <div className="tournament-card" data-tournament-id={tId} data-status={status}>
+      <img src={bannerUrl} alt="Tournament Banner" className="tournament-banner-image" />
       <div className="tournament-card-content">
         <div className="tournament-card-header">
           <div className="tournament-card-tags">
@@ -118,28 +128,36 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
           </div>
           <div className="info-item">
             <span>Entry Fee</span>
-            <strong className={eFee > 0 ? 'text-info' : ''}>
+            <strong className={eFee > 0 ? 'text-info' : 'text-success'}>
               {eFee > 0 ? `₹ ${eFee}` : 'Free'}
             </strong>
           </div>
         </div>
 
+        {/* Slot Booking Live Status Bar */}
         <div className="tournament-card-spots">
-          <span className={spotsL <= 5 && maxP > 0 ? 'text-danger' : 'text-accent'}>
-            {spotsTxt}
-          </span>
-          {maxP > 0 && (
-            <div className="progress mt-1" style={{ height: '6px' }}>
-              <div
-                className="progress-bar bg-warning"
-                role="progressbar"
-                style={{ width: `${progP}%` }}
-              ></div>
-            </div>
-          )}
+          <div className="d-flex justify-content-between align-items-center mb-1">
+            <span className={spotsL <= 5 ? 'text-danger fw-bold' : 'text-warning fw-semibold'}>
+              <i className="bi bi-grid-3x3-gap-fill me-1"></i>
+              {spotsTxt}
+            </span>
+            {isJoined && userSlots.length > 0 && (
+              <span className="badge bg-warning text-dark font-monospace fw-bold">
+                <i className="bi bi-check-circle-fill me-1"></i>
+                Slot #{userSlots.map((s: any) => s < 10 ? `0${s}` : s).join(', #')}
+              </span>
+            )}
+          </div>
+          <div className="progress" style={{ height: '6px' }}>
+            <div
+              className={`progress-bar ${spotsL <= 5 ? 'bg-danger' : 'bg-warning'}`}
+              role="progressbar"
+              style={{ width: `${progP}%` }}
+            ></div>
+          </div>
         </div>
 
-        <div className="tournament-card-actions">
+        <div className="tournament-card-actions mt-3">
           <button
             className="btn btn-custom btn-custom-secondary btn-sm btn-details"
             onClick={() => onOpenDetails(tournament)}
@@ -157,20 +175,25 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
           )}
 
           {isJoined ? (
-            <button className="btn btn-custom btn-sm btn-joined" disabled>
-              <i className="bi bi-check-circle-fill me-1"></i> Joined
+            <button
+              className="btn btn-custom btn-sm btn-joined"
+              onClick={handleSlotBookingTrigger}
+              title="View your booked slot and other players"
+            >
+              <i className="bi bi-check-circle-fill me-1 text-success"></i> Booked
             </button>
           ) : canJoin ? (
             <button
               className="btn btn-custom btn-sm btn-custom-accent btn-join"
-              onClick={() => onJoinClick(tournament)}
+              onClick={handleSlotBookingTrigger}
             >
-              {hasSlots ? "Select Slot" : `₹ ${eFee} Join`}{' '}
+              <i className="bi bi-grid-fill me-1"></i>
+              {eFee > 0 ? `Book (₹${eFee})` : 'Book Free Slot'}{' '}
               <i className="bi bi-arrow-right-short"></i>
             </button>
           ) : (
             <button className="btn btn-custom btn-sm btn-disabled" disabled>
-              {status !== 'upcoming' ? status.toUpperCase() : isFull ? 'Full' : 'Closed'}
+              {status !== 'upcoming' ? status.toUpperCase() : isFull ? 'Slots Full' : 'Closed'}
             </button>
           )}
         </div>

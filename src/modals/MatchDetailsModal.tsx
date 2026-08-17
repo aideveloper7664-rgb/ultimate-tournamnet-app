@@ -6,13 +6,15 @@ import { ref, get, db } from '../firebase';
 interface MatchDetailsModalProps {
   tournament: Tournament | null;
   onClose: () => void;
+  onOpenSlots?: (tournament: Tournament) => void;
 }
 
 export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
   tournament,
-  onClose
+  onClose,
+  onOpenSlots
 }) => {
-  const { appSettings } = useAuth();
+  const { currentUser, userProfile, appSettings } = useAuth();
   const [activeTab, setActiveTab] = useState<'info' | 'slots'>('info');
   const [loadingSlots, setLoadingSlots] = useState<boolean>(false);
   const [takenSlots, setTakenSlots] = useState<Record<string | number, any>>({});
@@ -43,7 +45,8 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
 
   if (!tournament) return null;
 
-  const gameName = appSettings.games?.[tournament.gameId]?.name || tournament.gameId || 'N/A';
+  const isJoined = !!(currentUser && userProfile?.joinedTournaments?.[tournament.id]);
+  const gameName = appSettings.games?.[tournament.gameId]?.name || tournament.gameId || 'Free Fire';
   const sTimeLoc = tournament.startTime
     ? new Date(tournament.startTime).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
     : 'TBA';
@@ -59,8 +62,8 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
     }
   }
 
-  const desc = tournament.description || 'Standard rules apply.';
-  const maxP = tournament.maxPlayers || 0;
+  const desc = tournament.description || 'Standard Free Fire competitive rules apply.';
+  const maxP = tournament.maxPlayers > 0 ? tournament.maxPlayers : 48;
 
   const handleCopyUid = (uid: string) => {
     navigator.clipboard.writeText(uid);
@@ -108,7 +111,7 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
     };
   };
 
-  const slotList = Array.from({ length: maxP > 0 ? maxP : 0 }, (_, i) => i + 1);
+  const slotList = Array.from({ length: maxP }, (_, i) => i + 1);
 
   return (
     <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(5, 6, 18, 0.85)', backdropFilter: 'blur(8px)' }} tabIndex={-1}>
@@ -117,8 +120,8 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
           
           <div className="modal-header border-bottom border-secondary pb-2">
             <div>
-              <h5 className="modal-title fw-bold text-white m-0">
-                <i className="bi bi-trophy-fill text-warning me-2"></i>
+              <h5 className="modal-title fw-bold text-white m-0 d-flex align-items-center gap-2">
+                <i className="bi bi-trophy-fill text-warning"></i>
                 {tournament.name || 'Match Details'}
               </h5>
               <div className="small text-secondary mt-1">
@@ -144,7 +147,7 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
                   className={`nav-link fw-bold ${activeTab === 'slots' ? 'active bg-warning text-dark' : 'text-secondary'}`}
                   onClick={() => setActiveTab('slots')}
                 >
-                  <i className="bi bi-controller me-1"></i> Participated Slots & Free Fire UIDs
+                  <i className="bi bi-controller me-1"></i> Live Slot Allocation ({maxP} Slots)
                 </button>
               </li>
             </ul>
@@ -176,8 +179,8 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
                   </div>
                   <div className="col-6 col-md-3">
                     <div className="p-2 rounded bg-black bg-opacity-40 border border-secondary text-center">
-                      <span className="text-secondary extra-small d-block">Max Players</span>
-                      <strong className="text-white fs-6">{tournament.maxPlayers > 0 ? tournament.maxPlayers : 'Unlimited'}</strong>
+                      <span className="text-secondary extra-small d-block">Total Slots</span>
+                      <strong className="text-white fs-6">{maxP} Slots</strong>
                     </div>
                   </div>
                 </div>
@@ -207,18 +210,31 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
                     <div className="spinner-border text-warning mb-2" role="status"></div>
                     <p className="text-secondary small">Fetching slot participants & Free Fire UIDs...</p>
                   </div>
-                ) : maxP === 0 ? (
-                  <p className="text-secondary text-center py-4">This tournament does not have fixed slots enabled.</p>
                 ) : (
                   <div>
-                    <div className="alert alert-dark border-warning border-opacity-50 py-2 px-3 small text-warning mb-3">
-                      <i className="bi bi-info-circle-fill me-2"></i>
-                      Below is the list of all allocated slots and players' Free Fire UIDs for this match.
+                    <div className="d-flex justify-content-between align-items-center alert alert-dark border-warning border-opacity-50 py-2 px-3 small text-warning mb-3">
+                      <div>
+                        <i className="bi bi-info-circle-fill me-2"></i>
+                        Live allocation of all {maxP} match slots and competitor details.
+                      </div>
+                      {onOpenSlots && (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-warning text-dark fw-bold py-1 px-3 shadow-sm"
+                          onClick={() => {
+                            onClose();
+                            onOpenSlots(tournament);
+                          }}
+                        >
+                          <i className="bi bi-grid-fill me-1"></i>
+                          {isJoined ? 'View Slot Matrix' : 'Book Your Slot Now'}
+                        </button>
+                      )}
                     </div>
 
-                    <div className="table-responsive bg-black bg-opacity-50 rounded border border-secondary">
+                    <div className="table-responsive bg-black bg-opacity-50 rounded border border-secondary max-h-[50vh] overflow-y-auto">
                       <table className="table table-dark table-hover table-sm align-middle mb-0">
-                        <thead>
+                        <thead className="sticky-top bg-dark">
                           <tr className="text-secondary small border-bottom border-secondary">
                             <th className="ps-3 py-2" style={{ width: '80px' }}>Slot</th>
                             <th className="py-2">Player Username</th>
@@ -241,8 +257,8 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
                                       {details.username}
                                     </span>
                                   ) : (
-                                    <span className="text-muted extra-small">
-                                      <i className="bi bi-dash-circle me-1"></i> Empty / Available
+                                    <span className="text-success extra-small fw-semibold">
+                                      <i className="bi bi-check-circle me-1"></i> Available Slot
                                     </span>
                                   )}
                                 </td>
@@ -265,6 +281,16 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
                                       <i className={`bi ${copiedUid === details.gameUid ? 'bi-check-lg' : 'bi-clipboard'} me-1`}></i>
                                       {copiedUid === details.gameUid ? 'Copied' : 'Copy UID'}
                                     </button>
+                                  ) : onOpenSlots && !isJoined ? (
+                                    <button
+                                      className="btn btn-xs btn-outline-success py-0 px-2 fw-semibold"
+                                      onClick={() => {
+                                        onClose();
+                                        onOpenSlots(tournament);
+                                      }}
+                                    >
+                                      + Book
+                                    </button>
                                   ) : (
                                     <span className="text-muted small">-</span>
                                   )}
@@ -281,8 +307,20 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
             )}
           </div>
 
-          <div className="modal-footer border-top border-secondary py-2">
-            <button type="button" className="btn btn-secondary px-4" onClick={onClose}>
+          <div className="modal-footer border-top border-secondary py-2 d-flex justify-content-between">
+            {onOpenSlots && !isJoined && tournament.status === 'upcoming' ? (
+              <button
+                type="button"
+                className="btn btn-custom btn-custom-accent btn-sm px-4 fw-bold"
+                onClick={() => {
+                  onClose();
+                  onOpenSlots(tournament);
+                }}
+              >
+                <i className="bi bi-grid-fill me-1"></i> Book Slot Now
+              </button>
+            ) : <div />}
+            <button type="button" className="btn btn-secondary btn-sm px-4" onClick={onClose}>
               Close
             </button>
           </div>

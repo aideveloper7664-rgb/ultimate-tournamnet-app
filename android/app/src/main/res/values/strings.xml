@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">Ultimate Tournament</string>
-    <string name="title_activity_main">Ultimate Tournament</string>
-    <string name="package_name">com.arena.app</string>
-    <string name="custom_url_scheme">com.arena.app</string>
-</resources>

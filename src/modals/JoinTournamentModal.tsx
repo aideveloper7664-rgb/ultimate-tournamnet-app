@@ -184,106 +184,124 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
   };
 
   return (
-    <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(5, 6, 18, 0.85)', backdropFilter: 'blur(8px)' }} tabIndex={-1}>
-      <div className="modal-dialog modal-dialog-centered">
-        <div className="modal-content bg-dark text-white border border-secondary shadow-lg rounded-3">
+    <div className="modal fade show d-block native-slot-modal-backdrop" tabIndex={-1}>
+      <div className="modal-dialog modal-dialog-centered native-slot-dialog">
+        <div className="modal-content native-slot-container">
           
-          <div className="modal-header border-bottom border-secondary pb-2">
-            <div>
-              <h5 className="modal-title fw-bold text-white m-0 d-flex align-items-center gap-2">
-                <i className="bi bi-controller text-warning fs-5"></i>
-                Enter In-Game Details
-              </h5>
-              <div className="small text-secondary mt-1">
-                Match: <strong className="text-light">{tournament.name}</strong>
+          {/* App Header */}
+          <div className="modal-header border-bottom border-secondary border-opacity-30 px-3 py-2.5 d-flex justify-content-between align-items-center" style={{ background: 'linear-gradient(180deg, #181B34 0%, #101328 100%)' }}>
+            <div className="d-flex align-items-center gap-2">
+              <div className="rounded-2 bg-warning bg-opacity-15 p-1.5 d-flex align-items-center justify-content-center text-warning border border-warning border-opacity-30" style={{ width: '32px', height: '32px' }}>
+                <i className="bi bi-controller fs-6"></i>
+              </div>
+              <div>
+                <h5 className="modal-title fw-bold text-white fs-6 m-0">Player Registration</h5>
+                <div className="text-secondary extra-small m-0 text-truncate" style={{ maxWidth: '220px' }}>
+                  {tournament.name}
+                </div>
               </div>
             </div>
             <button type="button" className="btn-close btn-close-white" onClick={onClose}></button>
           </div>
 
           <div className="modal-body p-3">
-            {/* Selected Slots Badge Summary */}
-            {selectedSlots && selectedSlots.length > 0 && (
-              <div className="p-2 mb-3 bg-black bg-opacity-40 border border-warning border-opacity-50 rounded d-flex align-items-center justify-content-between">
-                <span className="small text-warning fw-semibold">
-                  <i className="bi bi-grid-3x3-gap-fill me-2"></i>
-                  Allocated Slot(s):
-                </span>
-                <span className="badge bg-warning text-dark font-monospace fw-bold fs-6">
-                  #{selectedSlots.map(s => s < 10 ? `0${s}` : s).join(', #')}
+            {/* Slot & Fee Highlight Strip */}
+            <div className="d-flex align-items-center justify-content-between p-2.5 mb-3 rounded-3" style={{ background: 'linear-gradient(135deg, rgba(250, 204, 21, 0.08) 0%, rgba(15, 23, 42, 0.6) 100%)', border: '1px solid rgba(250, 204, 21, 0.25)' }}>
+              {selectedSlots && selectedSlots.length > 0 ? (
+                <div className="d-flex align-items-center gap-1.5">
+                  <span className="text-secondary extra-small text-uppercase fw-bold">Slot:</span>
+                  <span className="badge bg-warning text-dark fw-bold font-monospace px-2 py-1" style={{ fontSize: '0.75rem' }}>
+                    #{selectedSlots.map(s => s < 10 ? `0${s}` : s).join(', #')}
+                  </span>
+                </div>
+              ) : (
+                <div className="text-secondary extra-small fw-bold">Auto Slot</div>
+              )}
+
+              <div className="d-flex align-items-center gap-1.5">
+                <span className="text-secondary extra-small text-uppercase fw-bold">Entry:</span>
+                <span className="text-warning fw-bold font-monospace" style={{ fontSize: '0.95rem' }}>
+                  ₹{totalFee.toFixed(2)}
                 </span>
               </div>
-            )}
-
-            <div className="d-flex align-items-center justify-content-between p-2 mb-3 bg-black bg-opacity-30 rounded border border-secondary border-opacity-50 small">
-              <span className="text-secondary">Entry Fee:</span>
-              <strong className="text-warning fs-6">
-                ₹ {totalFee.toFixed(2)} {teamSize > 1 ? `(₹ ${fee} / slot)` : ''}
-              </strong>
             </div>
 
             <form onSubmit={handleConfirmAndJoin}>
-              <div className="mb-3">
-                <label className="form-label small text-secondary fw-semibold mb-1">
-                  <i className="bi bi-person-fill text-danger me-1"></i>
-                  In-Game Username (Free Fire)
+              {/* Leader / Player 1 Details */}
+              <div className="mb-2.5">
+                <label className="form-label extra-small text-secondary fw-bold text-uppercase mb-1 d-flex align-items-center gap-1">
+                  <i className="bi bi-person-fill text-danger"></i>
+                  <span>Game Username</span>
                 </label>
-                <input
-                  type="text"
-                  className="form-control bg-dark border-secondary text-white shadow-none"
-                  placeholder="e.g. OP_GAMER_99"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
-                />
+                <div className="input-group">
+                  <span className="input-group-text bg-black bg-opacity-40 border-secondary border-opacity-40 text-secondary">
+                    <i className="bi bi-person-badge text-warning"></i>
+                  </span>
+                  <input
+                    type="text"
+                    className="form-control bg-dark border-secondary border-opacity-40 text-white shadow-none"
+                    placeholder="e.g. OP_GAMER_99"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    required
+                  />
+                </div>
               </div>
 
               <div className="mb-3">
-                <label className="form-label small text-secondary fw-semibold mb-1">
-                  <i className="bi bi-hash text-warning me-1"></i>
-                  Free Fire Game UID
+                <label className="form-label extra-small text-secondary fw-bold text-uppercase mb-1 d-flex align-items-center gap-1">
+                  <i className="bi bi-hash text-warning"></i>
+                  <span>Game UID (Free Fire)</span>
                 </label>
-                <input
-                  type="text"
-                  className="form-control bg-dark border-secondary text-white font-monospace shadow-none"
-                  placeholder="e.g. 1234567890"
-                  value={gameUid}
-                  onChange={(e) => setGameUid(e.target.value)}
-                  required
-                />
+                <div className="input-group">
+                  <span className="input-group-text bg-black bg-opacity-40 border-secondary border-opacity-40 text-secondary">
+                    <i className="bi bi-fingerprint text-warning"></i>
+                  </span>
+                  <input
+                    type="text"
+                    className="form-control bg-dark border-secondary border-opacity-40 text-white font-monospace shadow-none"
+                    placeholder="e.g. 1029384756"
+                    value={gameUid}
+                    onChange={(e) => setGameUid(e.target.value)}
+                    required
+                  />
+                </div>
               </div>
 
+              {/* Teammates Section if Duo / Squad */}
               {teammates.length > 0 && (
-                <div className="mt-3">
-                  <hr className="border-secondary opacity-25" />
-                  <h6 className="text-warning fw-bold mb-3 small text-uppercase">
-                    <i className="bi bi-people-fill me-2"></i>
-                    Teammates Free Fire Details
-                  </h6>
+                <div className="mt-3 pt-2 border-top border-secondary border-opacity-25">
+                  <div className="d-flex align-items-center gap-1.5 mb-2.5 text-warning extra-small fw-bold text-uppercase">
+                    <i className="bi bi-people-fill"></i>
+                    <span>Teammates Details</span>
+                  </div>
                   {teammates.map((tm, idx) => (
-                    <div key={idx} className="mb-3 p-3 bg-black bg-opacity-30 border border-secondary border-opacity-50 rounded">
-                      <h6 className="text-warning small fw-bold mb-2">Teammate {idx + 2}</h6>
-                      <div className="mb-2">
-                        <label className="extra-small text-secondary d-block mb-1">Username</label>
-                        <input
-                          type="text"
-                          className="form-control form-control-sm bg-dark border-secondary text-white"
-                          placeholder={`Teammate ${idx + 2} Username`}
-                          value={tm.username}
-                          onChange={(e) => handleTeammateChange(idx, 'username', e.target.value)}
-                          required
-                        />
+                    <div key={idx} className="mb-2.5 p-2.5 rounded-3 bg-black bg-opacity-40 border border-secondary border-opacity-30">
+                      <div className="d-flex justify-content-between align-items-center mb-2">
+                        <span className="extra-small fw-bold text-light">Player {idx + 2}</span>
+                        <span className="badge bg-secondary bg-opacity-25 text-warning extra-small">Teammate</span>
                       </div>
-                      <div>
-                        <label className="extra-small text-secondary d-block mb-1">Free Fire UID</label>
-                        <input
-                          type="text"
-                          className="form-control form-control-sm bg-dark border-secondary text-white font-monospace"
-                          placeholder={`Teammate ${idx + 2} Game UID`}
-                          value={tm.gameUid}
-                          onChange={(e) => handleTeammateChange(idx, 'gameUid', e.target.value)}
-                          required
-                        />
+                      <div className="row g-2">
+                        <div className="col-6">
+                          <input
+                            type="text"
+                            className="form-control form-control-sm bg-dark border-secondary border-opacity-40 text-white shadow-none"
+                            placeholder="IGN Username"
+                            value={tm.username}
+                            onChange={(e) => handleTeammateChange(idx, 'username', e.target.value)}
+                            required
+                          />
+                        </div>
+                        <div className="col-6">
+                          <input
+                            type="text"
+                            className="form-control form-control-sm bg-dark border-secondary border-opacity-40 text-white font-monospace shadow-none"
+                            placeholder="Game UID"
+                            value={tm.gameUid}
+                            onChange={(e) => handleTeammateChange(idx, 'gameUid', e.target.value)}
+                            required
+                          />
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -296,21 +314,27 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
                 onDismiss={() => setStatusMessage(null)}
               />
 
-              <div className="modal-footer px-0 pb-0 mt-3 border-top border-secondary border-opacity-25 pt-3">
+              <div className="d-flex gap-2 mt-3 pt-2 border-top border-secondary border-opacity-25">
                 <button
                   type="button"
-                  className="btn btn-outline-secondary text-light btn-sm px-3"
+                  className="btn btn-outline-secondary text-light btn-sm px-3 flex-grow-1"
+                  style={{ borderRadius: '9px' }}
                   onClick={onClose}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="btn btn-custom btn-custom-accent btn-sm px-4 fw-bold shadow-sm"
+                  className="btn btn-warning text-dark fw-bold btn-sm px-4 flex-grow-1 d-inline-flex align-items-center justify-content-center gap-1.5 shadow-sm"
+                  style={{ borderRadius: '9px' }}
                   disabled={loading}
                 >
-                  {loading ? <span className="spinner-border spinner-border-sm me-2"></span> : null}
-                  Confirm & Lock Slot
+                  {loading ? <span className="spinner-border spinner-border-sm"></span> : (
+                    <>
+                      <span>Join Match</span>
+                      <i className="bi bi-arrow-right-short fs-5"></i>
+                    </>
+                  )}
                 </button>
               </div>
             </form>

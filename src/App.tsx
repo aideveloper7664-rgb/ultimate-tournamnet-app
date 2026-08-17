@@ -14,7 +14,6 @@ import { LeaderboardPage } from './pages/LeaderboardPage';
 import { ProfilePage } from './pages/ProfilePage';
 
 import { PolicyModal } from './modals/PolicyModal';
-import { AppUpdateModal } from './modals/AppUpdateModal';
 import { ChangePasswordModal } from './modals/ChangePasswordModal';
 import { WithdrawMethodModal } from './modals/WithdrawMethodModal';
 import { WithdrawModal } from './modals/WithdrawModal';
@@ -77,13 +76,12 @@ const AppContent: React.FC = () => {
   };
 
   const handleJoinClick = (tournament: Tournament) => {
-    const hasSlots = tournament.slotConfig && tournament.slotConfig.type !== 'disabled';
-    if (hasSlots) {
-      setSelectedTournamentForSlots(tournament);
-    } else {
-      setSelectedSlots([]);
-      setSelectedTournamentForJoin(tournament);
-    }
+    // ALWAYS open slot selection modal for tournaments so slot booking is always active!
+    setSelectedTournamentForSlots(tournament);
+  };
+
+  const handleOpenSlots = (tournament: Tournament) => {
+    setSelectedTournamentForSlots(tournament);
   };
 
   const handleConfirmSlots = (slots: (string | number)[]) => {
@@ -113,20 +111,14 @@ const AppContent: React.FC = () => {
         ) : (
           <>
             {currentSection === 'login-section' && <AuthPage />}
-            {currentSection === 'home-section' && (
-              <HomePage
-                onOpenDetails={handleOpenDetails}
-                onOpenIdPass={handleOpenIdPass}
-                onOpenChat={handleOpenChat}
-                onJoinClick={handleJoinClick}
-              />
-            )}
+            {currentSection === 'home-section' && <HomePage />}
             {currentSection === 'my-contests-section' && (
               <MyContestsPage
                 onOpenDetails={handleOpenDetails}
                 onOpenIdPass={handleOpenIdPass}
                 onOpenChat={handleOpenChat}
                 onJoinClick={handleJoinClick}
+                onOpenSlots={handleOpenSlots}
               />
             )}
             {currentSection === 'tournaments-section' && (
@@ -135,6 +127,7 @@ const AppContent: React.FC = () => {
                 onOpenIdPass={handleOpenIdPass}
                 onOpenChat={handleOpenChat}
                 onJoinClick={handleJoinClick}
+                onOpenSlots={handleOpenSlots}
               />
             )}
             {currentSection === 'wallet-section' && (
@@ -171,8 +164,6 @@ const AppContent: React.FC = () => {
         onClose={() => setPolicyType(null)}
       />
 
-      <AppUpdateModal />
-
       <ChangePasswordModal
         isOpen={isChangePasswordOpen}
         onClose={() => setIsChangePasswordOpen(false)}
@@ -193,6 +184,7 @@ const AppContent: React.FC = () => {
       <MatchDetailsModal
         tournament={selectedTournamentForDetails}
         onClose={() => setSelectedTournamentForDetails(null)}
+        onOpenSlots={handleOpenSlots}
       />
 
       <IdPasswordModal

@@ -9,13 +9,15 @@ interface MyContestsPageProps {
   onOpenIdPass: (tournament: Tournament) => void;
   onOpenChat: (tournament: Tournament) => void;
   onJoinClick: (tournament: Tournament) => void;
+  onOpenSlots?: (tournament: Tournament) => void;
 }
 
 export const MyContestsPage: React.FC<MyContestsPageProps> = ({
   onOpenDetails,
   onOpenIdPass,
   onOpenChat,
-  onJoinClick
+  onJoinClick,
+  onOpenSlots
 }) => {
   const { currentUser, userProfile } = useAuth();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
@@ -45,7 +47,7 @@ export const MyContestsPage: React.FC<MyContestsPageProps> = ({
         snapshots.forEach((snap, idx) => {
           if (snap.exists()) {
             const t = snap.val();
-            if (t.status === 'upcoming' || t.status === 'ongoing' || t.status === 'completed' || t.status === 'result') {
+            if (t.status === 'upcoming' || t.status === 'ongoing') {
               list.push({ id: joinedIds[idx], ...t });
             }
           }
@@ -88,6 +90,7 @@ export const MyContestsPage: React.FC<MyContestsPageProps> = ({
               onOpenIdPass={onOpenIdPass}
               onOpenChat={onOpenChat}
               onJoinClick={onJoinClick}
+              onOpenSlots={onOpenSlots}
             />
           ))
         ) : (

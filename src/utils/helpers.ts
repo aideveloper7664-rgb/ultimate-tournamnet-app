@@ -77,18 +77,17 @@ export function shareReferral(code: string, appSettings: AppSettings): void {
   const signupBonus = appSettings.signupBonus || 10;
   const referralBonus = appSettings.referralBonus || 5;
 
-  const shareText = `Free Fire tournament App🚨
+  const shareUrl = window.location.origin;
+  const shareText = `🎮 Join eSports Tournaments on ${appName}!
 
-App Name - ${appName}
-Free Joining ✅
-Sign up Bonus - ₹ ${signupBonus}💸
-Per Refer - ₹ ${referralBonus} 🌟
-Fast Join Free
+💰 Sign up Bonus: ₹${signupBonus}
+🎁 Per Refer Bonus: ₹${referralBonus}
+🔥 Fast & Free Custom Matches!
 
-Use Code - ( ${code} ) Free ₹ ${signupBonus} 😀
+Use my Referral Code: ${code}
 
-Download 👇
-https://adixclash.wuaze.com/?i=1`;
+Join here 👇
+${shareUrl}`;
 
   if (navigator.share) {
     navigator.share({

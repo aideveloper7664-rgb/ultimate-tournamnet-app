@@ -3,7 +3,6 @@ import { ref, query, orderByChild, equalTo, db } from '../firebase';
 import { Tournament } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { TournamentCard } from '../components/TournamentCard';
-import { notifyTournament } from '../utils/androidBridge';
 import { onValue } from 'firebase/database';
 
 interface TournamentsPageProps {
@@ -11,15 +10,17 @@ interface TournamentsPageProps {
   onOpenIdPass: (tournament: Tournament) => void;
   onOpenChat: (tournament: Tournament) => void;
   onJoinClick: (tournament: Tournament) => void;
+  onOpenSlots?: (tournament: Tournament) => void;
 }
 
 export const TournamentsPage: React.FC<TournamentsPageProps> = ({
   onOpenDetails,
   onOpenIdPass,
   onOpenChat,
-  onJoinClick
+  onJoinClick,
+  onOpenSlots
 }) => {
-  const { selectedGameId, currentUser, userProfile } = useAuth();
+  const { selectedGameId } = useAuth();
   const [activeTab, setActiveTab] = useState<'upcoming' | 'ongoing' | 'completed'>('upcoming');
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -46,31 +47,8 @@ export const TournamentsPage: React.FC<TournamentsPageProps> = ({
           const val = snapshot.val();
           const list: Tournament[] = Object.entries(val)
             .map(([id, t]: [string, any]) => ({ id, ...t }))
-            .filter(t => {
-              const matchesStatus = t.status === activeTab;
-              const isJoined = Boolean(
-                (currentUser && userProfile?.joinedTournaments && userProfile.joinedTournaments[t.id]) ||
-                (currentUser?.uid && t.registeredPlayers && t.registeredPlayers[currentUser.uid])
-              );
-              return matchesStatus && isJoined;
-            })
+            .filter(t => t.status === activeTab)
             .sort((a, b) => (a.startTime || 0) - (b.startTime || 0));
-
-          // Notify for any newly added tournament that wasn't in our known IDs list (if not initial load)
-          if (!isInitialLoadRef.current) {
-            list.forEach(t => {
-              if (t.id && !knownIdsRef.current.has(t.id)) {
-                notifyTournament(t.name);
-              }
-            });
-          }
-
-          // Maintain our set of known tournament IDs
-          const nextIds = new Set<string>();
-          list.forEach(t => {
-            if (t.id) nextIds.add(t.id);
-          });
-          knownIdsRef.current = nextIds;
 
           setTournaments(list);
         } else {
@@ -92,7 +70,7 @@ export const TournamentsPage: React.FC<TournamentsPageProps> = ({
     return () => {
       unsubscribe();
     };
-  }, [selectedGameId, activeTab, currentUser, userProfile?.joinedTournaments]);
+  }, [selectedGameId, activeTab]);
 
   return (
     <section id="tournaments-section" className="section active">
@@ -143,6 +121,7 @@ export const TournamentsPage: React.FC<TournamentsPageProps> = ({
               onOpenIdPass={onOpenIdPass}
               onOpenChat={onOpenChat}
               onJoinClick={onJoinClick}
+              onOpenSlots={onOpenSlots}
             />
           ))
         ) : (
