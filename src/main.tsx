@@ -42,3 +42,19 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 );
 
+
+import { PushNotifications } from '@capacitor/push-notifications';
+
+async function initPush() {
+  const permission = await PushNotifications.requestPermissions();
+  if (permission.receive === 'granted') {
+    await PushNotifications.register();
+  }
+  PushNotifications.addListener('registration', (token) => {
+    console.log('FCM Token:', token.value);
+  });
+  PushNotifications.addListener('pushNotificationReceived', (notification) => {
+    console.log('Notification:', notification);
+  });
+}
+initPush();
