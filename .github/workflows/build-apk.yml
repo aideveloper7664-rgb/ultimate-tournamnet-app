@@ -9,9 +9,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 18
-      - name: Install deps
-        run: npm install
+          node-version: 20
+      - name: Clean install deps
+        run: |
+          rm -f package-lock.json
+          npm install
       - name: Build web
         run: npm run build
       - name: Sync Capacitor
