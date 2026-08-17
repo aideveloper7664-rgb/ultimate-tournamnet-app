@@ -1,4 +1,4 @@
-package com.yourname.tournament;
+package com.arena.app;
 
 import com.getcapacitor.BridgeActivity;
 
