@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "1005368296850",
+    "firebase_url": "https://ultiamterdt-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "ultiamterdt",
+    "storage_bucket": "ultiamterdt.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1005368296850:android:25333babf94e08c53c6d4b",
+        "android_client_info": {
+          "package_name": "com.arena.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1005368296850-1nf0fh01fa2orfo7hjnha4g6h150hgau.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDagg6tspneTS7lXnu2ZZRHdyUpH0tXtpc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1005368296850-1nf0fh01fa2orfo7hjnha4g6h150hgau.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
