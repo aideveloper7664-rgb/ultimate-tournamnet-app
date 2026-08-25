@@ -115,19 +115,36 @@ export const WalletPage: React.FC<WalletPageProps> = ({
 
 
 
-        <div className="wallet-actions mt-4 d-flex gap-2">
+        <div className="wallet-actions mt-4">
           <button
-            className="btn btn-custom btn-action btn-add-money shadow-sm flex-fill"
+            id="btn-add-money"
+            type="button"
+            className="btn btn-custom btn-action btn-add-money shadow-sm"
             onClick={onStartRecharge}
           >
-            <i className="bi bi-plus-circle-fill me-1.5 fs-5 align-middle"></i>Add Cash
+            <i className="bi bi-plus-circle-fill"></i>
+            <span>Add Cash</span>
           </button>
           <button
-            className="btn btn-custom btn-action btn-withdraw-money shadow-sm flex-fill"
+            id="btn-withdraw-money"
+            type="button"
+            className="btn btn-custom btn-action btn-withdraw-money shadow-sm"
             onClick={onOpenWithdrawMethod}
           >
-            <i className="bi bi-arrow-up-right-circle-fill me-1.5 fs-5 align-middle"></i>Withdraw
+            <i className="bi bi-arrow-up-right-circle-fill"></i>
+            <span>Withdraw</span>
           </button>
+          {onOpenP2PTransfer && (
+            <button
+              id="btn-send-coins"
+              type="button"
+              className="btn btn-custom btn-action btn-send-coins shadow-sm"
+              onClick={onOpenP2PTransfer}
+            >
+              <i className="bi bi-send-fill"></i>
+              <span>Send Coins</span>
+            </button>
+          )}
         </div>
       </div>
 

@@ -79,20 +79,15 @@ export const HomePage: React.FC = () => {
     <section id="home-section" className="section active">
       {/* Announcement Bar */}
       {appSettings.announcementBar?.isEnabled && appSettings.announcementBar?.text && (
-        <div className="mb-3 overflow-hidden rounded-4 position-relative shadow-sm" style={{ background: 'linear-gradient(90deg, #ec4899, #8b5cf6, #3b82f6)', padding: '2px' }}>
-          <div className="bg-dark rounded-4 d-flex align-items-center overflow-hidden position-relative w-100" style={{ height: '44px' }}>
-            <div className="bg-dark px-3 h-100 d-flex align-items-center justify-content-center z-1 border-end border-secondary border-opacity-25 shadow-sm" style={{ minWidth: '45px' }}>
-              <i className="bi bi-megaphone-fill fs-5" style={{ color: '#f59e0b', animation: 'pulse-scale 1.5s infinite ease-in-out' }}></i>
+        <div className="announcement-ticker-wrapper mb-3" id="announcementTickerEl">
+          <div className="announcement-ticker-inner">
+            <div className="ticker-badge">
+              <i className="bi bi-megaphone-fill"></i>
+              <span>News</span>
             </div>
-            <div className="flex-grow-1 overflow-hidden h-100 d-flex align-items-center w-100">
+            <div className="ticker-content-track">
               <div 
-                className="d-inline-block text-white fw-semibold small w-100" 
-                style={{ 
-                  whiteSpace: 'nowrap',
-                  animation: 'scroll-left 15s linear infinite',
-                  paddingLeft: '100%',
-                  fontSize: '0.85rem'
-                }}
+                className="ticker-text" 
                 dangerouslySetInnerHTML={{ __html: appSettings.announcementBar.text || 'Welcome to the platform! Join tournaments and win exciting rewards.' }}
               ></div>
             </div>
@@ -101,29 +96,41 @@ export const HomePage: React.FC = () => {
       )}
 
       {/* Promotion Slider */}
-      <div className="swiper-container" id="promotionSliderEl">
+      <div className="promotion-slider-wrapper mb-3" id="promotionSliderEl">
         {loadingPromotions ? (
-          <div className="placeholder-glow">
-            <div className="swiper-slide">
-              <span className="placeholder d-block w-100 h-100" style={{ borderRadius: '10px' }}></span>
-            </div>
+          <div className="placeholder-glow w-100">
+            <div className="promo-skeleton placeholder"></div>
           </div>
         ) : promotions.length > 0 ? (
           <Swiper
             modules={[Autoplay, Pagination]}
             autoplay={{ delay: 3500, disableOnInteraction: false }}
-            pagination={{ clickable: true }}
+            pagination={{ clickable: true, dynamicBullets: true }}
             loop={promotions.length > 1}
-            style={{ width: '100%', height: '100%', borderRadius: '10px' }}
+            className="promo-swiper-container"
           >
             {promotions.map((promo) => (
-              <SwiperSlide key={promo.id}>
+              <SwiperSlide key={promo.id} className="promo-slide">
                 {promo.link ? (
-                  <a href={promo.link} target="_blank" rel="noopener noreferrer">
-                    <img src={promo.imageUrl} alt="Promotion" />
+                  <a href={promo.link} target="_blank" rel="noopener noreferrer" className="promo-slide-link">
+                    <img 
+                      src={promo.imageUrl} 
+                      alt="Promotion" 
+                      className="promo-img"
+                      loading="lazy"
+                    />
+                    <div className="promo-glass-shine"></div>
                   </a>
                 ) : (
-                  <img src={promo.imageUrl} alt="Promotion" />
+                  <div className="promo-slide-inner">
+                    <img 
+                      src={promo.imageUrl} 
+                      alt="Promotion" 
+                      className="promo-img"
+                      loading="lazy"
+                    />
+                    <div className="promo-glass-shine"></div>
+                  </div>
                 )}
               </SwiperSlide>
             ))}
@@ -135,40 +142,73 @@ export const HomePage: React.FC = () => {
       <div className="contest-status-nav" id="contestStatusNavEl">
         <a
           href="#"
-          className="contest-status-btn"
+          className="contest-status-btn status-upcoming"
           onClick={(e) => { e.preventDefault(); handleContestStatusClick('upcoming'); }}
         >
-          <i className="bi bi-calendar-event-fill"></i>
-          <span>Upcoming</span>
+          <div className="status-icon-wrapper upcoming-icon">
+            <i className="bi bi-clock-history"></i>
+          </div>
+          <div className="status-info">
+            <span className="status-title">Upcoming</span>
+            <span className="status-badge upcoming-badge">Matches</span>
+          </div>
         </a>
+
         <a
           href="#"
-          className="contest-status-btn"
+          className="contest-status-btn status-ongoing"
           onClick={(e) => { e.preventDefault(); handleContestStatusClick('ongoing'); }}
         >
-          <i className="bi bi-play-circle-fill"></i>
-          <span>Ongoing</span>
+          <div className="status-icon-wrapper ongoing-icon">
+            <i className="bi bi-fire"></i>
+            <span className="live-pulse-dot"></span>
+          </div>
+          <div className="status-info">
+            <span className="status-title">Live Now</span>
+            <span className="status-badge live-badge">Ongoing</span>
+          </div>
         </a>
+
         <a
           href="#"
-          className="contest-status-btn"
+          className="contest-status-btn status-completed"
           onClick={(e) => { e.preventDefault(); handleContestStatusClick('completed'); }}
         >
-          <i className="bi bi-trophy-fill"></i>
-          <span>Completed</span>
+          <div className="status-icon-wrapper completed-icon">
+            <i className="bi bi-trophy-fill"></i>
+          </div>
+          <div className="status-info">
+            <span className="status-title">Completed</span>
+            <span className="status-badge completed-badge">Results</span>
+          </div>
         </a>
       </div>
 
       {/* Esport Games */}
-      <h2 className="section-title">Esport Games</h2>
-      <div className="row g-3 mb-4" id="gamesListEl">
+      <div className="section-header-row mb-3 d-flex align-items-center justify-content-between">
+        <h2 className="section-title mb-0 d-flex align-items-center gap-2">
+          <span className="section-title-icon">
+            <i className="bi bi-controller"></i>
+          </span>
+          <span>Esport Games</span>
+        </h2>
+        {games.length > 0 && (
+          <span className="games-count-badge">{games.length} Games</span>
+        )}
+      </div>
+
+      <div className="row g-2.5 g-sm-3 mb-4" id="gamesListEl">
         {loadingGames ? (
           <>
             {[1, 2, 3].map((i) => (
               <div key={i} className="col-4">
                 <div className="game-card custom-card placeholder-glow">
-                  <span className="placeholder d-block" style={{ height: '100px', borderTopLeftRadius: '8px', borderTopRightRadius: '8px' }}></span>
-                  <span className="placeholder d-block mt-2 col-8 mx-auto" style={{ height: '18px' }}></span>
+                  <div className="game-card-img-wrapper">
+                    <span className="placeholder w-100 h-100 d-block"></span>
+                  </div>
+                  <div className="game-card-footer">
+                    <span className="placeholder d-block col-8 mx-auto" style={{ height: '14px', borderRadius: '4px' }}></span>
+                  </div>
                 </div>
               </div>
             ))}
@@ -181,17 +221,32 @@ export const HomePage: React.FC = () => {
                 onClick={() => handleGameClick(game)}
               >
                 <div className="game-card-img-wrapper">
-                  <img src={game.imageUrl} alt={game.name} />
+                  <img
+                    src={game.imageUrl}
+                    alt={game.name}
+                    loading="lazy"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=300&auto=format&fit=crop&q=80';
+                    }}
+                  />
+                  <div className="game-card-overlay"></div>
                   <div className="game-card-badge">
-                    <i className="bi bi-controller"></i>
+                    <i className="bi bi-joystick"></i>
+                  </div>
+                  <div className="game-card-play-btn">
+                    <i className="bi bi-play-fill"></i>
                   </div>
                 </div>
-                <span>{game.name}</span>
+                <div className="game-card-footer">
+                  <span className="game-name">{game.name}</span>
+                </div>
               </div>
             </div>
           ))
         ) : (
-          <p className="text-secondary text-center col-12">No games available.</p>
+          <div className="col-12 text-center py-4">
+            <p className="text-secondary mb-0">No games available.</p>
+          </div>
         )}
       </div>
     </section>

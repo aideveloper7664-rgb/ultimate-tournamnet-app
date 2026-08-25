@@ -150,21 +150,30 @@ export interface MatchHistoryItem {
   earnings?: number;
 }
 
-export interface P2PTransfer {
+export interface TransferRequest {
   id?: string;
   senderUid: string;
-  senderEmail: string;
-  senderName: string;
+  senderEmail?: string;
+  senderName?: string;
+  senderGameUid?: string;
   receiverUid: string;
-  receiverEmail: string;
-  receiverName: string;
-  grossAmount: number;
-  feePercent: number;
-  feeAmount: number;
-  netAmount: number;
-  timestamp: number | object;
-  status: 'completed' | 'failed';
+  receiverEmail?: string;
+  receiverName?: string;
+  receiverGameUid?: string;
+  amount: number;
+  grossAmount?: number;
+  feePercent?: number;
+  feeAmount?: number;
+  netAmount?: number;
+  status: 'pending' | 'completed' | 'rejected';
+  createdAt: number | object;
+  timestamp?: number | object;
   note?: string;
+  rejectReason?: string;
+  processedAt?: number;
+}
+
+export interface P2PTransfer extends TransferRequest {
 }
 
 export interface AppSettings {

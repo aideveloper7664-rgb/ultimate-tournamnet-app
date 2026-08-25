@@ -87,123 +87,179 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
 
   return (
     <div className="tournament-card" data-tournament-id={tId} data-status={status}>
-      <img src={bannerUrl} alt="Tournament Banner" className="tournament-banner-image" />
-      <div className="tournament-card-content">
-        <div className="tournament-card-header">
-          <div className="tournament-card-tags">
-            {tournament.mode && <span>{tournament.mode}</span>}
-            {tournament.map && <span>{tournament.map}</span>}
-            {tagsList.map((tag, idx) => (
-              <span key={idx}>{tag}</span>
-            ))}
+      {/* Banner & Floating Badges */}
+      <div className="tournament-banner-wrapper">
+        <img 
+          src={bannerUrl} 
+          alt={tournament.name || 'Tournament'} 
+          className="tournament-banner-image"
+          loading="lazy"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=600&auto=format&fit=crop&q=80';
+          }}
+        />
+        <div className="tournament-banner-gradient"></div>
+        
+        {/* Floating Timer Badge only on image */}
+        <div className="tournament-banner-badges">
+          <div></div>
+          <div className={`tournament-card-timer timer-${status}`}>
+            {status === 'ongoing' && <span className="timer-pulse-dot"></span>}
+            <i className={`bi ${status === 'ongoing' ? 'bi-broadcast' : status === 'completed' ? 'bi-check2-circle' : 'bi-clock-history'} me-1`}></i>
+            <span>{timerText}</span>
           </div>
-          <div className="tournament-card-timer">
-            {timerText}
+        </div>
+      </div>
+
+      <div className="tournament-card-content">
+        {/* Title & Schedule */}
+        <div className="tournament-title-row">
+          <h3 className="tournament-card-title">
+            <span className="tournament-title-icon">
+              <i className={tournament.icon || 'bi bi-controller'}></i>
+            </span>
+            <span className="tournament-title-text">{tournament.name || 'Tournament'}</span>
+          </h3>
+          <div className="tournament-schedule-badge">
+            <i className="bi bi-calendar3"></i>
+            <span>{sTimeLoc}</span>
           </div>
         </div>
 
-        <h3 className="tournament-card-title">
-          {tournament.icon ? (
-            <i className={tournament.icon}></i>
-          ) : (
-            <i className="bi bi-joystick text-accent"></i>
-          )}{' '}
-          {tournament.name || 'Tournament'}
-        </h3>
-
-        <p className="small text-secondary mb-2">
-          <i className="bi bi-calendar-event me-1"></i> {sTimeLoc}
-        </p>
-
-        <div className="tournament-card-info">
-          <div className="info-item">
-            <span>Prize Pool</span>
-            <strong>
-              <i className="bi bi-trophy-fill text-accent prize-icon me-1"></i> ₹ {pPool}
-            </strong>
+        {/* Tags Row below Title */}
+        {(tournament.mode || tournament.map || tagsList.length > 0) && (
+          <div className="tournament-card-tags-row mb-2.5">
+            {tournament.mode && (
+              <span className="tag-chip mode-chip">
+                <i className="bi bi-people-fill me-1"></i>
+                {tournament.mode}
+              </span>
+            )}
+            {tournament.map && (
+              <span className="tag-chip map-chip">
+                <i className="bi bi-geo-alt-fill me-1"></i>
+                {tournament.map}
+              </span>
+            )}
+            {tagsList.map((tag, idx) => (
+              <span key={idx} className="tag-chip">
+                <i className="bi bi-tag-fill me-1"></i>
+                {tag}
+              </span>
+            ))}
           </div>
-          <div className="info-item">
-            <span>Per Kill</span>
-            <strong>₹ {pkPrize}</strong>
+        )}
+
+        {/* 3-Column Native Stats Grid */}
+        <div className="tournament-stats-grid">
+          <div className="stat-box prize-box">
+            <div className="stat-label">
+              <i className="bi bi-trophy-fill"></i>
+              <span>Prize Pool</span>
+            </div>
+            <div className="stat-value prize-value">₹{pPool}</div>
           </div>
-          <div className="info-item">
-            <span>Entry Fee</span>
-            <strong className={eFee > 0 ? 'text-info' : 'text-success'}>
-              {eFee > 0 ? `₹ ${eFee}` : 'Free'}
-            </strong>
+
+          <div className="stat-box kill-box">
+            <div className="stat-label">
+              <i className="bi bi-crosshair"></i>
+              <span>Per Kill</span>
+            </div>
+            <div className="stat-value kill-value">₹{pkPrize}</div>
+          </div>
+
+          <div className="stat-box entry-box">
+            <div className="stat-label">
+              <i className="bi bi-ticket-perforated-fill"></i>
+              <span>Entry Fee</span>
+            </div>
+            <div className={`stat-value ${eFee > 0 ? 'entry-paid' : 'entry-free'}`}>
+              {eFee > 0 ? `₹${eFee}` : 'FREE'}
+            </div>
           </div>
         </div>
 
         {/* Slot Booking Live Status Bar */}
-        <div className="tournament-card-spots">
-          <div className="d-flex justify-content-between align-items-center mb-1">
-            <span className={spotsL <= 5 ? 'text-danger fw-bold' : 'text-warning fw-semibold'}>
-              <i className="bi bi-grid-3x3-gap-fill me-1"></i>
-              {spotsTxt}
-            </span>
+        <div className="tournament-slots-wrapper">
+          <div className="d-flex justify-content-between align-items-center mb-1.5">
+            <div className="slots-counter-label">
+              <span className={`slot-dot ${spotsL <= 5 ? 'dot-urgent' : 'dot-available'}`}></span>
+              <span className={spotsL <= 5 ? 'text-danger fw-bold' : 'text-slate-300'}>
+                {spotsTxt}
+              </span>
+            </div>
             {isJoined && userSlots.length > 0 && (
-              <span className="badge bg-warning text-dark font-monospace fw-bold">
-                <i className="bi bi-check-circle-fill me-1"></i>
-                Slot #{userSlots.map((s: any) => s < 10 ? `0${s}` : s).join(', #')}
+              <span className="booked-slot-chip">
+                <i className="bi bi-shield-check"></i>
+                <span>Slot #{userSlots.map((s: any) => s < 10 ? `0${s}` : s).join(', #')}</span>
               </span>
             )}
           </div>
-          <div className="progress" style={{ height: '6px' }}>
+          <div className="slots-progress-track">
             <div
-              className={`progress-bar ${spotsL <= 5 ? 'bg-danger' : 'bg-warning'}`}
-              role="progressbar"
+              className={`slots-progress-fill ${spotsL <= 5 ? 'fill-urgent' : 'fill-normal'}`}
               style={{ width: `${progP}%` }}
             ></div>
           </div>
         </div>
 
-        <div className="tournament-card-actions mt-3">
+        {/* Action Buttons Row */}
+        <div className="tournament-card-actions">
           <button
-            className="btn btn-custom btn-custom-secondary btn-sm btn-details"
+            type="button"
+            className="btn btn-action-card btn-card-details"
             onClick={() => onOpenDetails(tournament)}
           >
-            Details
+            <i className="bi bi-info-circle"></i>
+            <span>Details</span>
           </button>
 
           {isJoined && (status === 'ongoing' || status === 'upcoming') && (
             <button
-              className="btn btn-custom btn-custom-secondary btn-sm btn-chat"
+              type="button"
+              className="btn btn-action-card btn-card-chat"
               onClick={() => onOpenChat(tournament)}
             >
-              <i className="bi bi-chat-dots-fill me-1"></i> Chat
+              <i className="bi bi-chat-dots-fill"></i>
+              <span>Chat</span>
             </button>
           )}
 
           {isJoined ? (
             <button
-              className="btn btn-custom btn-sm btn-joined"
+              type="button"
+              className="btn btn-action-card btn-card-booked"
               onClick={handleSlotBookingTrigger}
               title="View your booked slot and other players"
             >
-              <i className="bi bi-check-circle-fill me-1 text-success"></i> Booked
+              <i className="bi bi-check-circle-fill"></i>
+              <span>Booked</span>
             </button>
           ) : canJoin ? (
             <button
-              className="btn btn-custom btn-sm btn-custom-accent btn-join"
+              type="button"
+              className="btn btn-action-card btn-card-join"
               onClick={handleSlotBookingTrigger}
             >
-              <i className="bi bi-grid-fill me-1"></i>
-              {eFee > 0 ? `Book (₹${eFee})` : 'Book Free Slot'}{' '}
-              <i className="bi bi-arrow-right-short"></i>
+              <i className="bi bi-lightning-charge-fill"></i>
+              <span>{eFee > 0 ? `Join (₹${eFee})` : 'Join Free'}</span>
             </button>
           ) : (
-            <button className="btn btn-custom btn-sm btn-disabled" disabled>
-              {status !== 'upcoming' ? status.toUpperCase() : isFull ? 'Slots Full' : 'Closed'}
+            <button type="button" className="btn btn-action-card btn-card-disabled" disabled>
+              <span>{status !== 'upcoming' ? status.toUpperCase() : isFull ? 'Slots Full' : 'Closed'}</span>
             </button>
           )}
         </div>
 
+        {/* ID & Password Button if active */}
         {showIdPass && (
           <button
-            className="btn btn-custom btn-idpass w-100 mt-2 btn-sm"
+            type="button"
+            className="btn btn-card-idpass w-100 mt-2.5"
             onClick={() => onOpenIdPass(tournament)}
           >
-            <i className="bi bi-key-fill me-1"></i> View ID & Pass
+            <i className="bi bi-key-fill"></i>
+            <span>View Room ID & Password</span>
           </button>
         )}
       </div>
