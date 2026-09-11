@@ -61,6 +61,7 @@ const AppContent: React.FC = () => {
   const [isAiSupportOpen, setIsAiSupportOpen] = useState(false);
   const [isDirectSupportOpen, setIsDirectSupportOpen] = useState(false);
   const [isP2PTransferOpen, setIsP2PTransferOpen] = useState(false);
+  const [isDroppingIn, setIsDroppingIn] = useState(false);
 
   // Tournament Action Handlers
   const handleOpenDetails = (tournament: Tournament) => {
@@ -97,8 +98,15 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="app-container">
-      <SplashScreen />
+    <div className={`app-container ${isDroppingIn ? 'elements-drop-in-active' : ''}`}>
+      <SplashScreen
+        onStart={() => {
+          setIsDroppingIn(true);
+          setTimeout(() => {
+            setIsDroppingIn(false);
+          }, 2400);
+        }}
+      />
 
       <Header
         onOpenNotifications={() => setIsNotificationsOpen(true)}

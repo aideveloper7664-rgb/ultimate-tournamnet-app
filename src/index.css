@@ -2834,6 +2834,358 @@ a:hover { color: #FBBF24; }
   pointer-events: none;
 }
 
+/* Background Video Styling */
+.splash-video-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.splash-video-element,
+.splash-video-iframe {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 56.25vh; /* 9:16 ratio based on height */
+  height: 100vh;
+  min-width: 100vw;
+  min-height: 177.77vw; /* 9:16 ratio based on width */
+  border: none;
+  object-fit: cover;
+}
+
+.splash-video-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(11, 12, 30, 0.3) 0%, rgba(11, 12, 30, 0.85) 100%);
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Cinematic Freeze Overlay when 1s remains */
+.splash-freeze-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(15, 23, 42, 0.25) 0%, rgba(11, 12, 30, 0.8) 100%);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  animation: freezeOverlayFadeIn 0.35s ease-out forwards;
+}
+
+@keyframes freezeOverlayFadeIn {
+  from { opacity: 0; backdrop-filter: blur(0px); }
+  to { opacity: 1; backdrop-filter: blur(3px); }
+}
+
+/* Animated Khatarnak START Button Wrapper */
+.splash-start-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  animation: khatarnakPopIn 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes khatarnakPopIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.25) translateY(40px);
+    filter: drop-shadow(0 0 0px rgba(245, 158, 11, 0));
+  }
+  50% {
+    transform: scale(1.16) translateY(-8px);
+    filter: drop-shadow(0 0 40px rgba(245, 158, 11, 0.9));
+  }
+  75% {
+    transform: scale(0.96) translateY(3px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: drop-shadow(0 0 25px rgba(245, 158, 11, 0.7));
+  }
+}
+
+/* Radar & Shockwave Rings */
+.start-radar-ring {
+  position: absolute;
+  border-radius: 9999px;
+  border: 1.5px solid rgba(245, 158, 11, 0.6);
+  pointer-events: none;
+  animation: radarShockwave 2s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
+}
+.start-radar-ring-2 {
+  animation-delay: 0.65s;
+  border-color: rgba(56, 189, 248, 0.55);
+}
+.start-radar-ring-3 {
+  animation-delay: 1.3s;
+  border-color: rgba(239, 68, 68, 0.45);
+}
+
+@keyframes radarShockwave {
+  0% {
+    width: 60px;
+    height: 60px;
+    opacity: 1;
+    transform: scale(0.8);
+  }
+  100% {
+    width: 180px;
+    height: 180px;
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+
+/* High Voltage Action START Button (Sleek & Compact) */
+.khatarnak-start-btn {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #FF5E00 0%, #FFA800 48%, #FF2600 100%);
+  border: 1.8px solid #FFFFFF;
+  border-radius: 36px;
+  padding: 10px 22px;
+  cursor: pointer;
+  outline: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 0 22px rgba(255, 94, 0, 0.8), 0 0 45px rgba(255, 168, 0, 0.35), inset 0 1px 3px rgba(255, 255, 255, 0.8);
+  animation: startBtnBreathing 1.8s ease-in-out infinite alternate;
+  transform-origin: center;
+  transition: transform 0.15s ease, filter 0.15s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.khatarnak-start-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 35px rgba(255, 94, 0, 0.95), 0 0 60px rgba(255, 168, 0, 0.5), inset 0 1px 5px rgba(255, 255, 255, 0.95);
+}
+
+.khatarnak-start-btn:active {
+  transform: scale(0.94);
+}
+
+@keyframes startBtnBreathing {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 18px rgba(255, 94, 0, 0.7), inset 0 1px 3px rgba(255, 255, 255, 0.6);
+  }
+  100% {
+    transform: scale(1.04);
+    box-shadow: 0 0 30px rgba(255, 38, 0, 0.9), 0 0 20px rgba(255, 215, 0, 0.8), inset 0 1px 4px rgba(255, 255, 255, 0.9);
+  }
+}
+
+.start-btn-icon-box {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  color: #FF2600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  animation: spinSlowPulse 3.5s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spinSlowPulse {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.1); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+.start-btn-text-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.start-btn-main-text {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 1.05rem;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #FFFFFF;
+  text-transform: uppercase;
+  line-height: 1;
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.6), 0 0 8px rgba(255, 255, 255, 0.5);
+}
+
+.start-btn-sub-text {
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #FFE699;
+  text-transform: uppercase;
+  margin-top: 2px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* Laser sweep shine effect */
+.start-btn-laser-shine {
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+  transform: skewX(-25deg);
+  animation: laserShineSweep 2s infinite;
+  pointer-events: none;
+}
+
+@keyframes laserShineSweep {
+  0% { left: -100%; }
+  35% { left: 160%; }
+  100% { left: 160%; }
+}
+
+/* Warp Blast Out on Splash Exit */
+.splash-wrapper.splash-warp-out {
+  animation: splashWarpOut 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  pointer-events: none;
+}
+
+@keyframes splashWarpOut {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+    filter: brightness(1) blur(0px);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1.08);
+    filter: brightness(1.7) blur(3px);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.35);
+    filter: brightness(2) blur(18px);
+  }
+}
+
+/* REAL GRAVITY FALLING + ELASTIC PHYSICAL BOUNCING ANIMATION */
+@keyframes gravityBounceDrop {
+  0% {
+    opacity: 0;
+    transform: translateY(-380px) scale(0.82);
+    filter: blur(8px);
+  }
+  38% {
+    opacity: 1;
+    transform: translateY(0px) scaleX(1.12) scaleY(0.88);
+    filter: blur(0px);
+  }
+  55% {
+    transform: translateY(-44px) scaleX(0.92) scaleY(1.08);
+  }
+  70% {
+    transform: translateY(0px) scaleX(1.06) scaleY(0.94);
+  }
+  82% {
+    transform: translateY(-16px) scaleX(0.97) scaleY(1.03);
+  }
+  92% {
+    transform: translateY(0px) scaleX(1.02) scaleY(0.98);
+  }
+  97% {
+    transform: translateY(-4px) scale(1);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0px) scale(1);
+    filter: blur(0px);
+  }
+}
+
+/* ONE-BY-ONE CASCADE DROP WITH GRAVITY & BOUNCE */
+.elements-drop-in-active .app-header {
+  animation: gravityBounceDrop 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.04s both !important;
+}
+
+.elements-drop-in-active .announcement-ticker-wrapper {
+  animation: gravityBounceDrop 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.16s both !important;
+}
+
+.elements-drop-in-active .promotion-slider-wrapper {
+  animation: gravityBounceDrop 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.28s both !important;
+}
+
+.elements-drop-in-active .contest-status-nav {
+  animation: gravityBounceDrop 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.40s both !important;
+}
+
+.elements-drop-in-active .section-header {
+  animation: gravityBounceDrop 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.52s both !important;
+}
+
+.elements-drop-in-active .games-grid-container .game-card:nth-child(1),
+.elements-drop-in-active .games-list .game-card:nth-child(1) {
+  animation: gravityBounceDrop 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.64s both !important;
+}
+
+.elements-drop-in-active .games-grid-container .game-card:nth-child(2),
+.elements-drop-in-active .games-list .game-card:nth-child(2) {
+  animation: gravityBounceDrop 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.76s both !important;
+}
+
+.elements-drop-in-active .games-grid-container .game-card:nth-child(3),
+.elements-drop-in-active .games-list .game-card:nth-child(3) {
+  animation: gravityBounceDrop 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.88s both !important;
+}
+
+.elements-drop-in-active .games-grid-container .game-card:nth-child(4),
+.elements-drop-in-active .games-list .game-card:nth-child(4) {
+  animation: gravityBounceDrop 0.65s cubic-bezier(0.22, 1, 0.36, 1) 1.00s both !important;
+}
+
+.elements-drop-in-active .games-grid-container .game-card:nth-child(n+5),
+.elements-drop-in-active .games-list .game-card:nth-child(n+5) {
+  animation: gravityBounceDrop 0.65s cubic-bezier(0.22, 1, 0.36, 1) 1.12s both !important;
+}
+
+.elements-drop-in-active .tournament-card:nth-child(1) {
+  animation: gravityBounceDrop 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.54s both !important;
+}
+
+.elements-drop-in-active .tournament-card:nth-child(2) {
+  animation: gravityBounceDrop 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.68s both !important;
+}
+
+.elements-drop-in-active .tournament-card:nth-child(3) {
+  animation: gravityBounceDrop 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.82s both !important;
+}
+
+.elements-drop-in-active .tournament-card:nth-child(n+4) {
+  animation: gravityBounceDrop 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.96s both !important;
+}
+
+.elements-drop-in-active .bottom-nav {
+  animation: gravityBounceDrop 0.65s cubic-bezier(0.22, 1, 0.36, 1) 1.24s both !important;
+}
+
+.elements-drop-in-active .floating-support-btn {
+  animation: gravityBounceDrop 0.65s cubic-bezier(0.22, 1, 0.36, 1) 1.36s both !important;
+}
+
 /* Splash Main Content Box */
 .splash-content {
   position: relative;

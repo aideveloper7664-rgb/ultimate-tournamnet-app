@@ -1,91 +1,188 @@
-import React, { useEffect, useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import React, { useEffect, useState, useRef } from 'react';
 
-export const SplashScreen: React.FC = () => {
-  const [hidden, setHidden] = useState<boolean>(false);
-  const [progress, setProgress] = useState<number>(0);
-  const [statusText, setStatusText] = useState<string>('Initializing Arena...');
-  const { appSettings } = useAuth();
+interface SplashScreenProps {
+  onStart?: () => void;
+}
 
-  useEffect(() => {
-    const startTime = Date.now();
-    const duration = 2400;
+export const SplashScreen: React.FC<SplashScreenProps> = ({ onStart }) => {
+  const [isPausedAtEnd, setIsPausedAtEnd] = useState<boolean>(false);
+  const [showStartBtn, setShowStartBtn] = useState<boolean>(false);
+  const [isExiting, setIsExiting] = useState<boolean>(false);
+  const [isDestroyed, setIsDestroyed] = useState<boolean>(false);
+  const [useFallbackIframe, setUseFallbackIframe] = useState<boolean>(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      const currentProgress = Math.min(Math.floor((elapsed / duration) * 100), 100);
+  // Synthesize a heavy sci-fi gaming launch sound (Web Audio API)
+  const playStartSound = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const audioCtx = new AudioCtx();
       
-      setProgress(currentProgress);
+      // Heavy sub-bass drop impact
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(140, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.42);
+      gain.gain.setValueAtTime(0.9, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.42);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.45);
 
-      if (currentProgress < 25) {
-        setStatusText('Initializing Arena Engine...');
-      } else if (currentProgress < 55) {
-        setStatusText('Loading Tournaments & Contests...');
-      } else if (currentProgress < 85) {
-        setStatusText('Connecting Gaming Servers...');
-      } else {
-        setStatusText('Ready to Battle!');
+      // Cyber laser sweep sound
+      const osc2 = audioCtx.createOscillator();
+      const gain2 = audioCtx.createGain();
+      osc2.type = 'triangle';
+      osc2.frequency.setValueAtTime(380, audioCtx.currentTime);
+      osc2.frequency.exponentialRampToValueAtTime(920, audioCtx.currentTime + 0.22);
+      gain2.gain.setValueAtTime(0.5, audioCtx.currentTime);
+      gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+      osc2.connect(gain2);
+      gain2.connect(audioCtx.destination);
+      osc2.start();
+      osc2.stop(audioCtx.currentTime + 0.28);
+    } catch (e) {
+      // AudioContext muted/unsupported
+    }
+  };
+
+  // Trigger video pause when exactly 9.9 seconds have played (as requested)
+  const handleTimeUpdate = () => {
+    const video = videoRef.current;
+    if (!video || isPausedAtEnd) return;
+
+    // Pause exactly at 9.9s before end
+    const pauseThreshold = 9.9;
+
+    if (video.currentTime >= pauseThreshold) {
+      video.pause();
+      setIsPausedAtEnd(true);
+      setShowStartBtn(true);
+    }
+  };
+
+  // Safety fallback timer if timeupdate has delay or duration is pending (at 9.9s)
+  useEffect(() => {
+    const safetyTimer = setTimeout(() => {
+      if (!isPausedAtEnd) {
+        if (videoRef.current) {
+          videoRef.current.pause();
+        }
+        setIsPausedAtEnd(true);
+        setShowStartBtn(true);
       }
+    }, 9900);
 
-      if (currentProgress >= 100) {
-        clearInterval(interval);
-        setTimeout(() => {
-          setHidden(true);
-        }, 200);
+    return () => clearTimeout(safetyTimer);
+  }, [isPausedAtEnd]);
+
+  // Attempt unmuted autoPlay
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.muted = false;
+      const playPromise = videoRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          // If browser strictly blocks unmuted autoplay without gesture, fallback to muted play
+          if (videoRef.current) {
+            videoRef.current.muted = true;
+            videoRef.current.play().catch(() => {});
+          }
+        });
       }
-    }, 35);
-
-    return () => clearInterval(interval);
+    }
   }, []);
 
-  const logoUrl = appSettings.splashLogoUrl || appSettings.logoUrl || "https://i.ibb.co/hR5GTCZX/logo.jpg";
-  const appName = appSettings.logoUrl ? 'Tournament App' : 'Gamer Zone';
+  const handleStartClick = () => {
+    if (isExiting) return;
+    setIsExiting(true);
+    playStartSound();
+
+    if ('vibrate' in navigator) {
+      try {
+        navigator.vibrate([40, 50, 90]);
+      } catch (e) {}
+    }
+
+    // Trigger khatarnak cascade drop-in animation across all elements in the app
+    onStart?.();
+
+    // After warp-out animation finishes, unmount splash completely
+    setTimeout(() => {
+      setIsDestroyed(true);
+    }, 580);
+  };
+
+  if (isDestroyed) {
+    return null;
+  }
 
   return (
     <div
       id="splash-screen"
-      className={`splash-wrapper ${hidden ? 'splash-hidden' : ''}`}
+      className={`splash-wrapper ${isExiting ? 'splash-warp-out' : ''}`}
     >
-      <div className="splash-bg-glow splash-glow-1"></div>
-      <div className="splash-bg-glow splash-glow-2"></div>
-      <div className="splash-grid-pattern"></div>
-
-      <div className="splash-content">
-        <div className="splash-logo-box">
-          <div className="cyber-ring ring-outer"></div>
-          <div className="cyber-ring ring-inner"></div>
-          
-          <div className="splash-logo-circle">
-            <img src={logoUrl} alt="Logo" className="splash-logo-img" />
-          </div>
-
-          <div className="splash-badge">
-            <i className="bi bi-controller"></i>
-          </div>
-        </div>
-
-        <h1 className="splash-title">{appName}</h1>
-        <p className="splash-subtitle">PREPARE FOR BATTLE • WIN REWARDS</p>
-
-        <div className="splash-progress-container">
-          <div className="splash-progress-header">
-            <span className="splash-status-text">
-              <i className="bi bi-lightning-charge-fill text-warning me-1"></i>
-              {statusText}
-            </span>
-            <span className="splash-percent">{progress}%</span>
-          </div>
-
-          <div className="splash-progress-track">
-            <div
-              className="splash-progress-fill"
-              style={{ width: `${progress}%` }}
-            >
-              <div className="splash-progress-glow"></div>
-            </div>
-          </div>
-        </div>
+      <div className="splash-video-container">
+        {useFallbackIframe ? (
+          <iframe
+            src="https://streamable.com/e/7eo3db?autoplay=1&muted=0&loop=0&nocontrols=1"
+            className="splash-video-iframe"
+            title="Splash Background Video"
+            allow="autoplay; encrypted-media"
+          ></iframe>
+        ) : (
+          <video
+            ref={videoRef}
+            src="/splash-video.mp4"
+            className="splash-video-element"
+            playsInline
+            autoPlay
+            preload="auto"
+            onTimeUpdate={handleTimeUpdate}
+            onEnded={() => {
+              if (!isPausedAtEnd) {
+                setIsPausedAtEnd(true);
+                setShowStartBtn(true);
+              }
+            }}
+            onError={() => setUseFallbackIframe(true)}
+          />
+        )}
       </div>
+
+      {/* Freeze Overlay & Animated START Button */}
+      {showStartBtn && (
+        <div className="splash-freeze-overlay">
+          <div className="splash-start-wrapper">
+            {/* Pulsing Concentric Radar Shockwaves */}
+            <div className="start-radar-ring start-radar-ring-1"></div>
+            <div className="start-radar-ring start-radar-ring-2"></div>
+            <div className="start-radar-ring start-radar-ring-3"></div>
+
+            {/* Glowing High-Impact Action Button (Compact & Sleek) */}
+            <button
+              type="button"
+              className="khatarnak-start-btn"
+              onClick={handleStartClick}
+              id="khatarnakStartBtn"
+            >
+              <div className="start-btn-laser-shine"></div>
+              
+              <div className="start-btn-icon-box">
+                <i className="bi bi-play-fill"></i>
+              </div>
+
+              <div className="start-btn-text-group">
+                <span className="start-btn-main-text">START</span>
+                <span className="start-btn-sub-text">TAP TO PLAY</span>
+              </div>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
