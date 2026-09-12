@@ -9,7 +9,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onStart }) => {
   const [showStartBtn, setShowStartBtn] = useState<boolean>(false);
   const [isExiting, setIsExiting] = useState<boolean>(false);
   const [isDestroyed, setIsDestroyed] = useState<boolean>(false);
-  const [useFallbackIframe, setUseFallbackIframe] = useState<boolean>(false);
+  const [isMuted, setIsMuted] = useState<boolean>(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   // Synthesize a heavy sci-fi gaming launch sound (Web Audio API)
@@ -85,16 +85,30 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onStart }) => {
       videoRef.current.muted = false;
       const playPromise = videoRef.current.play();
       if (playPromise !== undefined) {
-        playPromise.catch(() => {
-          // If browser strictly blocks unmuted autoplay without gesture, fallback to muted play
-          if (videoRef.current) {
-            videoRef.current.muted = true;
-            videoRef.current.play().catch(() => {});
-          }
-        });
+        playPromise
+          .then(() => {
+            setIsMuted(false);
+          })
+          .catch(() => {
+            // If browser strictly blocks unmuted autoplay without gesture, fallback to muted play
+            if (videoRef.current) {
+              videoRef.current.muted = true;
+              setIsMuted(true);
+              videoRef.current.play().catch(() => {});
+            }
+          });
       }
     }
   }, []);
+
+  const toggleSound = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (videoRef.current) {
+      const newMuted = !videoRef.current.muted;
+      videoRef.current.muted = newMuted;
+      setIsMuted(newMuted);
+    }
+  };
 
   const handleStartClick = () => {
     if (isExiting) return;
@@ -125,32 +139,36 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onStart }) => {
       id="splash-screen"
       className={`splash-wrapper ${isExiting ? 'splash-warp-out' : ''}`}
     >
+      {/* Audio Mute / Unmute Control */}
+      {!isPausedAtEnd && (
+        <button
+          type="button"
+          className="splash-sound-toggle-btn"
+          onClick={toggleSound}
+          aria-label={isMuted ? 'Unmute video' : 'Mute video'}
+        >
+          <i className={`bi ${isMuted ? 'bi-volume-mute-fill' : 'bi-volume-up-fill'}`}></i>
+          <span>{isMuted ? 'TAP FOR SOUND' : 'SOUND ON'}</span>
+        </button>
+      )}
+
       <div className="splash-video-container">
-        {useFallbackIframe ? (
-          <iframe
-            src="https://streamable.com/e/7eo3db?autoplay=1&muted=0&loop=0&nocontrols=1"
-            className="splash-video-iframe"
-            title="Splash Background Video"
-            allow="autoplay; encrypted-media"
-          ></iframe>
-        ) : (
-          <video
-            ref={videoRef}
-            src="/splash-video.mp4"
-            className="splash-video-element"
-            playsInline
-            autoPlay
-            preload="auto"
-            onTimeUpdate={handleTimeUpdate}
-            onEnded={() => {
-              if (!isPausedAtEnd) {
-                setIsPausedAtEnd(true);
-                setShowStartBtn(true);
-              }
-            }}
-            onError={() => setUseFallbackIframe(true)}
-          />
-        )}
+        <video
+          ref={videoRef}
+          src="/videos/splash.mp4"
+          className="splash-video-element"
+          playsInline
+          autoPlay
+          muted
+          preload="auto"
+          onTimeUpdate={handleTimeUpdate}
+          onEnded={() => {
+            if (!isPausedAtEnd) {
+              setIsPausedAtEnd(true);
+              setShowStartBtn(true);
+            }
+          }}
+        />
       </div>
 
       {/* Freeze Overlay & Animated START Button */}
