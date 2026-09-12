@@ -78,19 +78,54 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onStart }) => {
     return () => clearTimeout(safetyTimer);
   }, [isPausedAtEnd]);
 
-  // AutoPlay video
+  // AutoPlay video with full audio support
   useEffect(() => {
-    if (videoRef.current) {
-      const playPromise = videoRef.current.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(() => {
-          if (videoRef.current) {
-            videoRef.current.muted = true;
-            videoRef.current.play().catch(() => {});
-          }
-        });
+    const video = videoRef.current;
+    if (!video) return;
+
+    video.volume = 1.0;
+    video.muted = false;
+
+    let cleanupListeners: (() => void) | null = null;
+
+    const enableAudio = () => {
+      if (videoRef.current) {
+        videoRef.current.muted = false;
+        videoRef.current.volume = 1.0;
       }
-    }
+      if (cleanupListeners) cleanupListeners();
+    };
+
+    cleanupListeners = () => {
+      window.removeEventListener('pointerdown', enableAudio);
+      window.removeEventListener('touchstart', enableAudio);
+      window.removeEventListener('click', enableAudio);
+      window.removeEventListener('keydown', enableAudio);
+    };
+
+    const tryPlay = async () => {
+      try {
+        await video.play();
+      } catch (err) {
+        // If browser autoplay policy strictly blocks unmuted sound without user gesture:
+        video.muted = true;
+        try {
+          await video.play();
+        } catch (e) {}
+
+        // Immediately unmute upon the very first user interaction anywhere
+        window.addEventListener('pointerdown', enableAudio, { once: true });
+        window.addEventListener('touchstart', enableAudio, { once: true });
+        window.addEventListener('click', enableAudio, { once: true });
+        window.addEventListener('keydown', enableAudio, { once: true });
+      }
+    };
+
+    tryPlay();
+
+    return () => {
+      if (cleanupListeners) cleanupListeners();
+    };
   }, []);
 
   const handleStartClick = () => {
@@ -121,6 +156,12 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onStart }) => {
     <div
       id="splash-screen"
       className={`splash-wrapper ${isExiting ? 'splash-warp-out' : ''}`}
+      onClick={() => {
+        if (videoRef.current && videoRef.current.muted) {
+          videoRef.current.muted = false;
+          videoRef.current.volume = 1.0;
+        }
+      }}
     >
       <div className="splash-video-container">
         <video
@@ -129,7 +170,6 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onStart }) => {
           className="splash-video-element"
           playsInline
           autoPlay
-          muted
           preload="auto"
           onTimeUpdate={handleTimeUpdate}
           onEnded={() => {
