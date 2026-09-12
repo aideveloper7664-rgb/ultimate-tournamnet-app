@@ -9,7 +9,6 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onStart }) => {
   const [showStartBtn, setShowStartBtn] = useState<boolean>(false);
   const [isExiting, setIsExiting] = useState<boolean>(false);
   const [isDestroyed, setIsDestroyed] = useState<boolean>(false);
-  const [isMuted, setIsMuted] = useState<boolean>(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   // Synthesize a heavy sci-fi gaming launch sound (Web Audio API)
@@ -79,36 +78,20 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onStart }) => {
     return () => clearTimeout(safetyTimer);
   }, [isPausedAtEnd]);
 
-  // Attempt unmuted autoPlay
+  // AutoPlay video
   useEffect(() => {
     if (videoRef.current) {
-      videoRef.current.muted = false;
       const playPromise = videoRef.current.play();
       if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            setIsMuted(false);
-          })
-          .catch(() => {
-            // If browser strictly blocks unmuted autoplay without gesture, fallback to muted play
-            if (videoRef.current) {
-              videoRef.current.muted = true;
-              setIsMuted(true);
-              videoRef.current.play().catch(() => {});
-            }
-          });
+        playPromise.catch(() => {
+          if (videoRef.current) {
+            videoRef.current.muted = true;
+            videoRef.current.play().catch(() => {});
+          }
+        });
       }
     }
   }, []);
-
-  const toggleSound = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (videoRef.current) {
-      const newMuted = !videoRef.current.muted;
-      videoRef.current.muted = newMuted;
-      setIsMuted(newMuted);
-    }
-  };
 
   const handleStartClick = () => {
     if (isExiting) return;
@@ -139,19 +122,6 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onStart }) => {
       id="splash-screen"
       className={`splash-wrapper ${isExiting ? 'splash-warp-out' : ''}`}
     >
-      {/* Audio Mute / Unmute Control */}
-      {!isPausedAtEnd && (
-        <button
-          type="button"
-          className="splash-sound-toggle-btn"
-          onClick={toggleSound}
-          aria-label={isMuted ? 'Unmute video' : 'Mute video'}
-        >
-          <i className={`bi ${isMuted ? 'bi-volume-mute-fill' : 'bi-volume-up-fill'}`}></i>
-          <span>{isMuted ? 'TAP FOR SOUND' : 'SOUND ON'}</span>
-        </button>
-      )}
-
       <div className="splash-video-container">
         <video
           ref={videoRef}
