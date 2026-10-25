@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { Tournament } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { getTimeRemaining } from '../utils/helpers';
@@ -34,7 +35,6 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
   
   const regP = tournament.registeredPlayers || {};
   const regC = Object.keys(regP).length;
-  // Intelligent fallback for max players if not set
   const maxP = tournament.maxPlayers > 0 ? tournament.maxPlayers : 48;
   const spotsL = Math.max(0, maxP - regC);
   const isFull = maxP > 0 && spotsL <= 0;
@@ -86,7 +86,13 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
   };
 
   return (
-    <div className="tournament-card" data-tournament-id={tId} data-status={status}>
+    <motion.div
+      className="tournament-card"
+      data-tournament-id={tId}
+      data-status={status}
+      whileHover={{ y: -4 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+    >
       {/* Banner & Floating Badges */}
       <div className="tournament-banner-wrapper">
         <img 
@@ -100,7 +106,7 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
         />
         <div className="tournament-banner-gradient"></div>
         
-        {/* Floating Timer Badge only on image */}
+        {/* Floating Timer Badge */}
         <div className="tournament-banner-badges">
           <div></div>
           <div className={`tournament-card-timer timer-${status}`}>
@@ -126,7 +132,7 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
           </div>
         </div>
 
-        {/* Tags Row below Title */}
+        {/* Tags Row */}
         {(tournament.mode || tournament.map || tagsList.length > 0) && (
           <div className="tournament-card-tags-row mb-2.5">
             {tournament.mode && (
@@ -203,6 +209,20 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
           </div>
         </div>
 
+        {/* Live Stream Button if active */}
+        {(tournament as any).liveStreamUrl && (
+          <a
+            href={(tournament as any).liveStreamUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-sm w-100 mb-2.5 py-1.5 fw-bold text-white d-flex align-items-center justify-content-center gap-1.5 rounded-3 shadow-sm"
+            style={{ background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)', textDecoration: 'none', border: '1px solid #ef4444' }}
+          >
+            <i className="bi bi-youtube fs-5"></i>
+            <span>Watch Live Stream</span>
+          </a>
+        )}
+
         {/* Action Buttons Row */}
         <div className="tournament-card-actions">
           <button
@@ -263,6 +283,6 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
           </button>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 };

@@ -203,3 +203,82 @@ export interface AppSettings {
   policyRefund?: string;
   policyFairPlay?: string;
 }
+
+export interface LotteryItem {
+  id: string;
+  name: string;
+  bannerUrl?: string;
+  entryFee: number;
+  winningPrize: string | number;
+  maxSlots: number;
+  resultTime: number;
+  status: 'upcoming' | 'resulted' | 'completed';
+  winnerName?: string;
+  winnerUid?: string;
+  registeredUsers?: Record<string, { joinedAt: number; username?: string }>;
+}
+
+export interface ShopProduct {
+  id: string;
+  name: string;
+  price: number;
+  imageUrl?: string;
+  description?: string;
+  category?: string;
+  status: 'active' | 'sold' | 'inactive';
+  createdAt?: number;
+}
+
+export interface ShopOrder {
+  id: string;
+  userId: string;
+  userName: string;
+  userPhone: string;
+  deliveryAddress: string;
+  productId: string;
+  productName: string;
+  price: number;
+  note?: string;
+  status: 'pending' | 'completed' | 'cancelled';
+  timestamp: number;
+}
+
+export interface TicketMessage {
+  id: string;
+  senderRole: 'user' | 'admin' | 'support';
+  senderName: string;
+  text?: string;
+  attachment?: {
+    url: string;
+    resourceType: 'image' | 'video';
+    name?: string;
+  };
+  timestamp: number;
+}
+
+export interface SupportTicket {
+  ticketId: string;
+  userId: string;
+  userName: string;
+  userEmail?: string;
+  ticketType: 'hacker' | 'refund' | 'general';
+  status: 'open' | 'closed';
+  message?: string;
+  attachment?: {
+    url: string;
+    resourceType: 'image' | 'video';
+  };
+  createdAt: number;
+  updatedAt: number;
+  messages?: Record<string, TicketMessage>;
+}
+
+export interface TutorialVideo {
+  id: string;
+  title: string;
+  description: string;
+  videoUrl: string;
+  duration?: string;
+  thumbnailUrl?: string;
+}
+

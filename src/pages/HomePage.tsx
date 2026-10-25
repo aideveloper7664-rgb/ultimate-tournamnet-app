@@ -139,7 +139,7 @@ export const HomePage: React.FC = () => {
       </div>
 
       {/* Contest Status Navigation */}
-      <div className="contest-status-nav" id="contestStatusNavEl">
+      <div className="contest-status-nav mb-3.5" id="contestStatusNavEl">
         <a
           href="#"
           className="contest-status-btn status-upcoming"
@@ -150,7 +150,6 @@ export const HomePage: React.FC = () => {
           </div>
           <div className="status-info">
             <span className="status-title">Upcoming</span>
-            <span className="status-badge upcoming-badge">Matches</span>
           </div>
         </a>
 
@@ -165,7 +164,6 @@ export const HomePage: React.FC = () => {
           </div>
           <div className="status-info">
             <span className="status-title">Live Now</span>
-            <span className="status-badge live-badge">Ongoing</span>
           </div>
         </a>
 
@@ -179,7 +177,6 @@ export const HomePage: React.FC = () => {
           </div>
           <div className="status-info">
             <span className="status-title">Completed</span>
-            <span className="status-badge completed-badge">Results</span>
           </div>
         </a>
       </div>

@@ -18,6 +18,7 @@ import {
   equalTo,
   push
 } from '../firebase';
+import { THEMES, applyTheme as applySystemTheme } from '../utils/theme';
 import { UserProfile, AppSettings } from '../types';
 import { generateReferralCode } from '../utils/helpers';
 
@@ -32,6 +33,10 @@ interface AuthContextType {
   selectedGameName: string | null;
   unreadNotificationsCount: number;
   themeMode: 'dark' | 'light';
+  currentThemeId: string;
+  setCurrentThemeId: (id: string) => void;
+  isDrawerOpen: boolean;
+  setIsDrawerOpen: (open: boolean) => void;
   toggleTheme: () => void;
   tempReferralCode: string | null;
   setTempReferralCode: (code: string | null) => void;
@@ -64,23 +69,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [selectedGameName, setSelectedGameName] = useState<string | null>(null);
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState<number>(0);
   const [tempReferralCode, setTempReferralCode] = useState<string | null>(null);
-  const [themeMode, setThemeMode] = useState<'dark' | 'light'>(() => {
-    const saved = localStorage.getItem('app_theme_mode');
-    return (saved === 'light' || saved === 'dark') ? saved : 'dark';
+
+  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+  const [currentThemeId, setCurrentThemeId] = useState<string>(() => {
+    try {
+      return localStorage.getItem('gz') || '';
+    } catch {
+      return '';
+    }
   });
 
+  const activeThemeDef = THEMES.find(t => t.id === currentThemeId) || THEMES[0];
+  const themeMode: 'dark' | 'light' = (activeThemeDef.light || activeThemeDef.id === 'day') ? 'light' : 'dark';
+
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', themeMode);
-    if (themeMode === 'light') {
-      document.body.classList.add('light-theme');
-    } else {
-      document.body.classList.remove('light-theme');
-    }
-    localStorage.setItem('app_theme_mode', themeMode);
-  }, [themeMode]);
+    applySystemTheme(currentThemeId);
+  }, [currentThemeId]);
 
   const toggleTheme = () => {
-    setThemeMode(prev => (prev === 'dark' ? 'light' : 'dark'));
+    setIsDrawerOpen(true);
   };
 
   const applyTheme = (theme?: Record<string, string>) => {
@@ -121,7 +128,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       'profile-section',
       'tournaments-section',
       'recharge-section',
-      'leaderboard-section'
+      'leaderboard-section',
+      'earn-section',
+      'spinwheel-section',
+      'scratchcard-section',
+      'lottery-section',
+      'shop-section',
+      'tutorials-section'
     ];
     const isLoggedIn = !!auth.currentUser;
 
@@ -372,6 +385,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         selectedGameName,
         unreadNotificationsCount,
         themeMode,
+        currentThemeId,
+        setCurrentThemeId,
+        isDrawerOpen,
+        setIsDrawerOpen,
         toggleTheme,
         tempReferralCode,
         setTempReferralCode,

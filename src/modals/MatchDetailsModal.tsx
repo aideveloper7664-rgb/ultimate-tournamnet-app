@@ -71,7 +71,6 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
     setTimeout(() => setCopiedUid(null), 2000);
   };
 
-  // Helper to resolve player information for a given slot number
   const getSlotDetails = (slotNum: number) => {
     const slotKey = slotNum.toString();
     const rawVal = takenSlots[slotNum] || takenSlots[slotKey];
@@ -114,92 +113,173 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
   const slotList = Array.from({ length: maxP }, (_, i) => i + 1);
 
   return (
-    <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(5, 6, 18, 0.85)', backdropFilter: 'blur(8px)' }} tabIndex={-1}>
+    <div
+      className="modal fade show d-block"
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.65)', backdropFilter: 'blur(4px)' }}
+      tabIndex={-1}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="match-details-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div className="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
-        <div className="modal-content bg-dark text-white border border-secondary shadow-lg">
+        <div className="modal-content match-details-modal-content">
           
-          <div className="modal-header border-bottom border-secondary pb-2">
-            <div>
-              <h5 className="modal-title fw-bold text-white m-0 d-flex align-items-center gap-2">
-                <i className="bi bi-trophy-fill text-warning"></i>
-                {tournament.name || 'Match Details'}
-              </h5>
-              <div className="small text-secondary mt-1">
-                Game: <span className="text-warning fw-bold">{gameName}</span> • Mode: <span className="badge bg-secondary text-white">{tournament.mode || 'N/A'}</span>
+          {/* Header */}
+          <div className="match-details-head">
+            <div className="d-flex align-items-center gap-3">
+              <div className="mode-icon">
+                <i className="bi bi-trophy-fill"></i>
+              </div>
+              <div>
+                <h5 className="modal-title fw-bold text-white m-0 fs-5" id="match-details-title">
+                  {tournament.name || 'Match Details'}
+                </h5>
+                <p className="m-0 extra-small" style={{ color: '#9EA4B8' }}>
+                  {gameName} · {tournament.mode || 'SOLO'}
+                </p>
               </div>
             </div>
-            <button type="button" className="btn-close btn-close-white" onClick={onClose}></button>
+            <button
+              type="button"
+              className="close-btn"
+              onClick={onClose}
+              aria-label="Close"
+            >
+              <i className="bi bi-x-lg"></i>
+            </button>
           </div>
 
-          {/* Modal Tab Controls */}
-          <div className="px-3 pt-2 bg-black bg-opacity-25 border-bottom border-secondary border-opacity-50">
-            <ul className="nav nav-pills nav-fill small">
-              <li className="nav-item">
-                <button
-                  className={`nav-link fw-bold ${activeTab === 'info' ? 'active bg-warning text-dark' : 'text-secondary'}`}
-                  onClick={() => setActiveTab('info')}
-                >
-                  <i className="bi bi-file-text-fill me-1"></i> Match Info & Rules
-                </button>
-              </li>
-              <li className="nav-item">
-                <button
-                  className={`nav-link fw-bold ${activeTab === 'slots' ? 'active bg-warning text-dark' : 'text-secondary'}`}
-                  onClick={() => setActiveTab('slots')}
-                >
-                  <i className="bi bi-controller me-1"></i> Live Slot Allocation ({maxP} Slots)
-                </button>
-              </li>
-            </ul>
+          {/* Tabs Track */}
+          <div className="px-4 pt-3">
+            <div className="match-details-tabs-track" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'info'}
+                className={`match-details-tab-btn ${activeTab === 'info' ? 'active' : ''}`}
+                onClick={() => setActiveTab('info')}
+              >
+                Match Info & Rules
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'slots'}
+                className={`match-details-tab-btn ${activeTab === 'slots' ? 'active' : ''}`}
+                onClick={() => setActiveTab('slots')}
+              >
+                Slot Allocation ({maxP} Slots)
+              </button>
+            </div>
           </div>
 
-          <div className="modal-body p-3" id="matchDetailsModalBodyEl">
+          {/* Body */}
+          <div className="modal-body p-4" id="matchDetailsModalBodyEl">
             {activeTab === 'info' ? (
-              <div>
-                <div className="row g-2 mb-3">
+              <div className="d-flex flex-column gap-3.5">
+                {/* 4 Stat Cards */}
+                <div className="row g-3">
                   <div className="col-6 col-md-3">
-                    <div className="p-2 rounded bg-black bg-opacity-40 border border-secondary text-center">
-                      <span className="text-secondary extra-small d-block">Entry Fee</span>
-                      <strong className={tournament.entryFee > 0 ? 'text-info fs-6' : 'text-success fs-6'}>
-                        {tournament.entryFee > 0 ? `₹ ${tournament.entryFee}` : 'Free'}
+                    <div className="match-stat-card match-stat-blue">
+                      <span className="lbl">Entry Fee</span>
+                      <strong className="val">
+                        {tournament.entryFee > 0 ? `₹${tournament.entryFee}` : 'FREE'}
                       </strong>
                     </div>
                   </div>
+
                   <div className="col-6 col-md-3">
-                    <div className="p-2 rounded bg-black bg-opacity-40 border border-secondary text-center">
-                      <span className="text-secondary extra-small d-block">Prize Pool</span>
-                      <strong className="text-warning fs-6">₹ {tournament.prizePool || 0}</strong>
+                    <div className="match-stat-card match-stat-gold">
+                      <span className="lbl">Prize Pool</span>
+                      <strong className="val">₹{tournament.prizePool || 0}</strong>
                     </div>
                   </div>
+
                   <div className="col-6 col-md-3">
-                    <div className="p-2 rounded bg-black bg-opacity-40 border border-secondary text-center">
-                      <span className="text-secondary extra-small d-block">Per Kill</span>
-                      <strong className="text-white fs-6">₹ {tournament.perKillPrize || 0}</strong>
+                    <div className="match-stat-card match-stat-green">
+                      <span className="lbl">Per Kill</span>
+                      <strong className="val">₹{tournament.perKillPrize || 0}</strong>
                     </div>
                   </div>
+
                   <div className="col-6 col-md-3">
-                    <div className="p-2 rounded bg-black bg-opacity-40 border border-secondary text-center">
-                      <span className="text-secondary extra-small d-block">Total Slots</span>
-                      <strong className="text-white fs-6">{maxP} Slots</strong>
+                    <div className="match-stat-card match-stat-purple">
+                      <span className="lbl">Total Slots</span>
+                      <strong className="val">{maxP} Slots</strong>
                     </div>
                   </div>
                 </div>
 
-                <div className="mb-3 p-2 bg-black bg-opacity-30 rounded border border-secondary border-opacity-50">
-                  <div className="small text-secondary"><i className="bi bi-calendar-event me-1"></i> Start Time:</div>
-                  <div className="fw-bold text-white fs-6">{sTimeLoc}</div>
-                  <div className="small text-secondary mt-1"><i className="bi bi-geo-alt-fill me-1"></i> Map: <span className="text-white">{tournament.map || 'N/A'}</span></div>
+                {/* Schedule & Map Pill */}
+                <div
+                  className="p-3.5 rounded-4 d-flex flex-wrap align-items-center justify-content-between gap-3"
+                  style={{ background: '#1A1D26', border: '1px solid #272B38' }}
+                >
+                  <div className="d-flex align-items-center gap-3">
+                    <div
+                      className="rounded-3 d-flex align-items-center justify-content-center p-2.5"
+                      style={{ background: '#262A37', color: '#6CC4FF', width: '44px', height: '44px' }}
+                    >
+                      <i className="bi bi-calendar3 fs-5"></i>
+                    </div>
+                    <div>
+                      <div className="extra-small fw-bold tracking-wider" style={{ color: '#9EA4B8' }}>START TIME</div>
+                      <div className="fw-bold text-white small">{sTimeLoc}</div>
+                    </div>
+                  </div>
+                  <div className="d-flex align-items-center gap-3">
+                    <div
+                      className="rounded-3 d-flex align-items-center justify-content-center p-2.5"
+                      style={{ background: '#262A37', color: '#FFC61A', width: '44px', height: '44px' }}
+                    >
+                      <i className="bi bi-geo-alt-fill fs-5"></i>
+                    </div>
+                    <div>
+                      <div className="extra-small fw-bold tracking-wider" style={{ color: '#9EA4B8' }}>MAP LOCATION</div>
+                      <div className="fw-bold text-warning small" style={{ color: '#FFC61A' }}>{tournament.map || 'Erangel / Bermuda'}</div>
+                    </div>
+                  </div>
                 </div>
 
-                <h6 className="text-warning fw-bold mb-2"><i className="bi bi-shield-check me-1"></i> Match Rules:</h6>
-                <div className="p-3 bg-black bg-opacity-40 rounded border border-secondary text-light small" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-                  {desc}
+                {/* Match Rules Card */}
+                <div>
+                  <h6 className="fw-bold mb-2 small uppercase tracking-wider" style={{ color: '#FFC61A' }}>
+                    Match Rules & Guidelines
+                  </h6>
+                  <div
+                    className="p-3.5 rounded-4 small"
+                    style={{
+                      background: '#1A1D26',
+                      border: '1px solid #272B38',
+                      color: '#F5F6FA',
+                      whiteSpace: 'pre-wrap',
+                      lineHeight: 1.65
+                    }}
+                  >
+                    {desc}
+                  </div>
                 </div>
 
+                {/* Prize Distribution Card */}
                 {pDistHTML && (
-                  <div className="mt-3">
-                    <h6 className="text-warning fw-bold mb-2"><i className="bi bi-trophy me-1"></i> Prize Distribution:</h6>
-                    <pre className="p-3 bg-black bg-opacity-40 rounded border border-secondary text-warning small m-0">{pDistHTML}</pre>
+                  <div>
+                    <h6 className="fw-bold mb-2 small uppercase tracking-wider" style={{ color: '#FFC61A' }}>
+                      Prize Distribution
+                    </h6>
+                    <pre
+                      className="p-3.5 rounded-4 font-mono small m-0"
+                      style={{
+                        background: '#1A1D26',
+                        border: '1px solid rgba(255, 198, 26, 0.3)',
+                        color: '#FFC61A',
+                        whiteSpace: 'pre-wrap'
+                      }}
+                    >
+                      {pDistHTML}
+                    </pre>
                   </div>
                 )}
               </div>
@@ -207,99 +287,92 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
               <div>
                 {loadingSlots ? (
                   <div className="text-center py-5">
-                    <div className="spinner-border text-warning mb-2" role="status"></div>
-                    <p className="text-secondary small">Fetching slot participants & Free Fire UIDs...</p>
+                    <div className="spinner-border mb-2" role="status" style={{ color: '#FFC61A' }}></div>
+                    <p className="small" style={{ color: '#9EA4B8' }}>Loading live slot allocation...</p>
                   </div>
                 ) : (
-                  <div>
-                    <div className="d-flex justify-content-between align-items-center alert alert-dark border-warning border-opacity-50 py-2 px-3 small text-warning mb-3">
-                      <div>
-                        <i className="bi bi-info-circle-fill me-2"></i>
-                        Live allocation of all {maxP} match slots and competitor details.
+                  <div className="d-flex flex-column gap-3">
+                    <div
+                      className="p-3 rounded-4 d-flex align-items-center justify-content-between gap-2"
+                      style={{
+                        background: '#1A1D26',
+                        border: '1px solid #272B38'
+                      }}
+                    >
+                      <div className="small fw-semibold d-flex align-items-center gap-2" style={{ color: '#FFC61A' }}>
+                        <i className="bi bi-info-circle-fill fs-6"></i>
+                        <span>Live participant list & game UIDs for all {maxP} slots</span>
                       </div>
                       {onOpenSlots && (
                         <button
                           type="button"
-                          className="btn btn-sm btn-warning text-dark fw-bold py-1 px-3 shadow-sm"
+                          className="match-book-btn whitespace-nowrap"
                           onClick={() => {
                             onClose();
                             onOpenSlots(tournament);
                           }}
                         >
-                          <i className="bi bi-grid-fill me-1"></i>
-                          {isJoined ? 'View Slot Matrix' : 'Book Your Slot Now'}
+                          {isJoined ? 'View Slot Matrix' : 'Book Slot'}
                         </button>
                       )}
                     </div>
 
-                    <div className="table-responsive bg-black bg-opacity-50 rounded border border-secondary max-h-[50vh] overflow-y-auto">
-                      <table className="table table-dark table-hover table-sm align-middle mb-0">
-                        <thead className="sticky-top bg-dark">
-                          <tr className="text-secondary small border-bottom border-secondary">
-                            <th className="ps-3 py-2" style={{ width: '80px' }}>Slot</th>
-                            <th className="py-2">Player Username</th>
-                            <th className="py-2">Free Fire UID</th>
-                            <th className="pe-3 py-2 text-end">Action</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {slotList.map((slotNum) => {
-                            const details = getSlotDetails(slotNum);
-                            return (
-                              <tr key={slotNum} className="border-bottom border-secondary border-opacity-25">
-                                <td className="ps-3 fw-bold text-warning">
-                                  #{slotNum < 10 ? `0${slotNum}` : slotNum}
-                                </td>
-                                <td>
-                                  {details ? (
-                                    <span className="fw-semibold text-white">
-                                      <i className="bi bi-person-fill text-danger me-1"></i>
-                                      {details.username}
-                                    </span>
-                                  ) : (
-                                    <span className="text-success extra-small fw-semibold">
-                                      <i className="bi bi-check-circle me-1"></i> Available Slot
-                                    </span>
-                                  )}
-                                </td>
-                                <td>
-                                  {details ? (
-                                    <span className="badge bg-dark text-warning border border-warning font-monospace px-2 py-1">
-                                      <i className="bi bi-controller me-1"></i>
-                                      {details.gameUid}
-                                    </span>
-                                  ) : (
-                                    <span className="text-muted small">-</span>
-                                  )}
-                                </td>
-                                <td className="pe-3 text-end">
-                                  {details && details.gameUid !== 'N/A' ? (
-                                    <button
-                                      className="btn btn-xs btn-outline-warning py-0 px-2"
-                                      onClick={() => handleCopyUid(details.gameUid)}
-                                    >
-                                      <i className={`bi ${copiedUid === details.gameUid ? 'bi-check-lg' : 'bi-clipboard'} me-1`}></i>
-                                      {copiedUid === details.gameUid ? 'Copied' : 'Copy UID'}
-                                    </button>
-                                  ) : onOpenSlots && !isJoined ? (
-                                    <button
-                                      className="btn btn-xs btn-outline-success py-0 px-2 fw-semibold"
-                                      onClick={() => {
-                                        onClose();
-                                        onOpenSlots(tournament);
-                                      }}
-                                    >
-                                      + Book
-                                    </button>
-                                  ) : (
-                                    <span className="text-muted small">-</span>
-                                  )}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                    {/* Slot List */}
+                    <div className="d-flex flex-column gap-2.5" style={{ maxHeight: '48vh', overflowY: 'auto' }}>
+                      {slotList.map((slotNum) => {
+                        const details = getSlotDetails(slotNum);
+                        return (
+                          <div key={slotNum} className="match-slot-row">
+                            <div className="d-flex align-items-center gap-3">
+                              <div className="match-slot-num-tile">
+                                #{slotNum < 10 ? `0${slotNum}` : slotNum}
+                              </div>
+                              <div>
+                                {details ? (
+                                  <div>
+                                    <div className="fw-bold text-white d-flex align-items-center gap-1.5">
+                                      <span>{details.username}</span>
+                                    </div>
+                                    <div className="extra-small font-mono mt-0.5" style={{ color: '#9EA4B8' }}>
+                                      UID: <span style={{ color: '#FFC61A' }}>{details.gameUid}</span>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="fw-bold extra-small" style={{ color: '#3DDC84' }}>
+                                    Available Slot
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div>
+                              {details && details.gameUid !== 'N/A' ? (
+                                <button
+                                  type="button"
+                                  className="btn btn-sm px-3 py-1.5 rounded-3 fw-bold border-0"
+                                  style={{ background: '#262A37', color: '#FFC61A' }}
+                                  onClick={() => handleCopyUid(details.gameUid)}
+                                >
+                                  {copiedUid === details.gameUid ? 'Copied' : 'Copy'}
+                                </button>
+                              ) : onOpenSlots && !isJoined ? (
+                                <button
+                                  type="button"
+                                  className="match-book-btn"
+                                  onClick={() => {
+                                    onClose();
+                                    onOpenSlots(tournament);
+                                  }}
+                                >
+                                  + Book
+                                </button>
+                              ) : (
+                                <span className="small" style={{ color: '#9EA4B8' }}>-</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -307,20 +380,25 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
             )}
           </div>
 
-          <div className="modal-footer border-top border-secondary py-2 d-flex justify-content-between">
+          {/* Footer */}
+          <div className="modal-footer border-top px-4 py-3 d-flex justify-content-between" style={{ borderColor: '#272B38', background: '#14161D' }}>
             {onOpenSlots && !isJoined && tournament.status === 'upcoming' ? (
               <button
                 type="button"
-                className="btn btn-custom btn-custom-accent btn-sm px-4 fw-bold"
+                className="match-action-btn-primary"
                 onClick={() => {
                   onClose();
                   onOpenSlots(tournament);
                 }}
               >
-                <i className="bi bi-grid-fill me-1"></i> Book Slot Now
+                Book Slot Now
               </button>
             ) : <div />}
-            <button type="button" className="btn btn-secondary btn-sm px-4" onClick={onClose}>
+            <button
+              type="button"
+              className="match-action-btn-ghost"
+              onClick={onClose}
+            >
               Close
             </button>
           </div>

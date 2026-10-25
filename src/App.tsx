@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SplashScreen } from './components/SplashScreen';
+import { ParticleBackground } from './components/ParticleBackground';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 import { AuthPage } from './pages/AuthPage';
@@ -32,14 +33,18 @@ import { AiSupportModal } from './modals/AiSupportModal';
 import { DirectSupportModal } from './modals/DirectSupportModal';
 import { P2PTransferModal } from './modals/P2PTransferModal';
 import { FloatingSupportFAB } from './components/FloatingSupportFAB';
+import { AppearanceDrawer } from './components/AppearanceDrawer';
 
 import { Tournament } from './types';
 import { PaymentCallbackPage } from './pages/PaymentCallbackPage';
 
 const AppContent: React.FC = () => {
-  const { currentSection, showSection, reloadUserProfile } = useAuth();
+  const { currentSection, showSection, reloadUserProfile, isDrawerOpen } = useAuth();
   
-  const isPaymentCallback = window.location.pathname === '/payment-callback';
+  const isPaymentCallback = 
+    window.location.pathname === '/payment-callback' || 
+    window.location.pathname === '/payment-return' ||
+    window.location.search.includes('hp_order=');
 
   // Modal States
   const [policyType, setPolicyType] = useState<'privacy' | 'terms' | 'refund' | 'fairPlay' | 'refer' | null>(null);
@@ -61,7 +66,40 @@ const AppContent: React.FC = () => {
   const [isAiSupportOpen, setIsAiSupportOpen] = useState(false);
   const [isDirectSupportOpen, setIsDirectSupportOpen] = useState(false);
   const [isP2PTransferOpen, setIsP2PTransferOpen] = useState(false);
-  const [isDroppingIn, setIsDroppingIn] = useState(false);
+
+  const isAnyModalOpen = Boolean(
+    isDrawerOpen ||
+    policyType ||
+    isChangePasswordOpen ||
+    isWithdrawMethodOpen ||
+    withdrawMethod ||
+    selectedTournamentForDetails ||
+    selectedTournamentForIdPass ||
+    selectedTournamentForChat ||
+    selectedTournamentForJoin ||
+    selectedTournamentForSlots ||
+    isNotificationsOpen ||
+    isMatchHistoryOpen ||
+    isPlayerStatsOpen ||
+    isCustomerSupportOpen ||
+    isWorldChatOpen ||
+    isEditNameOpen ||
+    isAiSupportOpen ||
+    isDirectSupportOpen ||
+    isP2PTransferOpen
+  );
+
+  useEffect(() => {
+    if (isAnyModalOpen) {
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
+    }
+    return () => {
+      document.body.classList.remove('modal-open');
+    };
+  }, [isAnyModalOpen]);
+
 
   // Tournament Action Handlers
   const handleOpenDetails = (tournament: Tournament) => {
@@ -98,15 +136,10 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className={`app-container ${isDroppingIn ? 'elements-drop-in-active' : ''}`}>
-      <SplashScreen
-        onStart={() => {
-          setIsDroppingIn(true);
-          setTimeout(() => {
-            setIsDroppingIn(false);
-          }, 2400);
-        }}
-      />
+    <div className="app-container">
+      <ParticleBackground />
+      <SplashScreen />
+
 
       <Header
         onOpenNotifications={() => setIsNotificationsOpen(true)}
@@ -283,6 +316,9 @@ const AppContent: React.FC = () => {
         isOpen={isP2PTransferOpen}
         onClose={() => setIsP2PTransferOpen(false)}
       />
+
+      {/* Appearance 16-Theme Drawer */}
+      <AppearanceDrawer />
     </div>
   );
 };

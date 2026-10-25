@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Tournament, RegisteredPlayer } from '../types';
 import { ref, onValue, db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
@@ -23,6 +23,25 @@ export const SlotSelectionModal: React.FC<SlotSelectionModalProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
+  // Roulette Auto Pick States
+  const [spinning, setSpinning] = useState<boolean>(false);
+  const [scannedSlot, setScannedSlot] = useState<number | null>(null);
+  const [poppingSlot, setPoppingSlot] = useState<number | null>(null);
+  const timeoutsRef = useRef<NodeJS.Timeout[]>([]);
+
+  const clearAllTimeouts = () => {
+    timeoutsRef.current.forEach(clearTimeout);
+    timeoutsRef.current = [];
+  };
+
+  const handleCloseModal = () => {
+    clearAllTimeouts();
+    setSpinning(false);
+    setScannedSlot(null);
+    setPoppingSlot(null);
+    onClose();
+  };
+
   // Search & Filter
   const [filter, setFilter] = useState<'all' | 'available' | 'occupied'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -37,7 +56,13 @@ export const SlotSelectionModal: React.FC<SlotSelectionModalProps> = ({
   const [copiedUid, setCopiedUid] = useState<boolean>(false);
 
   useEffect(() => {
-    if (!isOpen || !tournament) return;
+    if (!isOpen || !tournament) {
+      clearAllTimeouts();
+      setSpinning(false);
+      setScannedSlot(null);
+      setPoppingSlot(null);
+      return;
+    }
     
     setLoading(true);
     setSelectedSlots([]);
@@ -70,6 +95,7 @@ export const SlotSelectionModal: React.FC<SlotSelectionModalProps> = ({
 
     return () => {
       unsubscribe();
+      clearAllTimeouts();
     };
   }, [isOpen, tournament]);
 
@@ -141,6 +167,7 @@ export const SlotSelectionModal: React.FC<SlotSelectionModalProps> = ({
   };
 
   const handleSlotClick = (slotNum: number, isTaken: boolean) => {
+    if (spinning) return;
     setErrorMessage(null);
     if (isTaken) {
       const details = getSlotDetails(slotNum);
@@ -169,9 +196,11 @@ export const SlotSelectionModal: React.FC<SlotSelectionModalProps> = ({
     }
   };
 
-  // Quick Auto Pick
-  const handleQuickAutoPick = () => {
+  // Roulette Auto Pick Effect (5 seconds duration, cubic ease-out slowdown, backwards sequence)
+  const handleAutoPick = () => {
+    if (spinning) return;
     setErrorMessage(null);
+
     const availableSlots: number[] = [];
     for (let i = 1; i <= maxPlayers; i++) {
       if (!isSlotTaken(i)) {
@@ -184,11 +213,89 @@ export const SlotSelectionModal: React.FC<SlotSelectionModalProps> = ({
       return;
     }
 
-    const picked = availableSlots.slice(0, slotsToSelect);
-    setSelectedSlots(picked);
+    const targetIndex = Math.floor(Math.random() * availableSlots.length);
+    const targetSlot = availableSlots[targetIndex];
+
+    let finalPicked: number[] = [targetSlot];
+    if (slotsToSelect > 1) {
+      const remaining = availableSlots.filter(s => s !== targetSlot);
+      finalPicked = [targetSlot, ...remaining.slice(0, slotsToSelect - 1)].sort((a, b) => a - b);
+    }
+
+    // Accessibility check: prefers-reduced-motion
+    const prefersReduced = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduced) {
+      setSelectedSlots(finalPicked);
+      return;
+    }
+
+    clearAllTimeouts();
+    setSpinning(true);
+    setSelectedSlots([]);
+
+    const AUTO_MS = 5000;
+    const N = 36;
+
+    // Timing calculation: delay[i] = 50 + (i / (N-1))^3 * 450
+    const rawDelays: number[] = [];
+    for (let i = 0; i < N; i++) {
+      rawDelays.push(50 + Math.pow(i / (N - 1), 3) * 450);
+    }
+    const sumDelays = rawDelays.reduce((a, b) => a + b, 0);
+    const scale = AUTO_MS / sumDelays;
+    const delays = rawDelays.map(d => d * scale);
+
+    // Backward sequence generation: seq[i] = openSlots[(targetIndex - (N - 1 - i)) mod openSlots.length]
+    const sequence: number[] = [];
+    for (let i = 0; i < N; i++) {
+      const offset = N - 1 - i;
+      const idx = ((targetIndex - offset) % availableSlots.length + availableSlots.length) % availableSlots.length;
+      sequence.push(availableSlots[idx]);
+    }
+
+    let accumulatedDelay = 0;
+    for (let i = 0; i < N; i++) {
+      const slotNum = sequence[i];
+      const isLast = i === N - 1;
+
+      const t = setTimeout(() => {
+        setScannedSlot(slotNum);
+
+        if (typeof navigator !== 'undefined' && 'vibrate' in navigator && typeof navigator.vibrate === 'function') {
+          try {
+            if (isLast) {
+              navigator.vibrate([20, 40, 20]);
+            } else {
+              navigator.vibrate(8);
+            }
+          } catch (e) {
+            // Browser vibrate permission fallback
+          }
+        }
+
+        if (isLast) {
+          const tFinal = setTimeout(() => {
+            setScannedSlot(null);
+            setSelectedSlots(finalPicked);
+            setPoppingSlot(targetSlot);
+
+            const tPop = setTimeout(() => {
+              setPoppingSlot(null);
+              setSpinning(false);
+            }, 400);
+            timeoutsRef.current.push(tPop);
+          }, 450);
+          timeoutsRef.current.push(tFinal);
+        }
+      }, accumulatedDelay);
+
+      timeoutsRef.current.push(t);
+      accumulatedDelay += delays[i];
+    }
   };
 
   const handleConfirm = () => {
+    if (spinning) return;
     if (selectedSlots.length !== slotsToSelect) {
       setErrorMessage(`Please select ${slotsToSelect} slot(s) to proceed.`);
       return;
@@ -228,207 +335,169 @@ export const SlotSelectionModal: React.FC<SlotSelectionModalProps> = ({
     return true;
   });
 
+  const pad = (n: number) => String(n).padStart(2, "0");
+
   return (
-    <div className="modal fade show d-block native-slot-modal-backdrop" tabIndex={-1}>
-      <div className="modal-dialog modal-dialog-centered modal-dialog-scrollable native-slot-dialog">
-        <div className="modal-content native-slot-container">
-          
-          {/* App-Native Gaming Header */}
-          <div className="modal-header border-bottom border-secondary border-opacity-30 px-3 py-2.5 d-flex justify-content-between align-items-center" style={{ background: 'linear-gradient(180deg, #181B34 0%, #101328 100%)' }}>
-            <div className="d-flex align-items-center gap-2">
-              <div className="rounded-2 bg-warning bg-opacity-15 p-1.5 d-flex align-items-center justify-content-center text-warning border border-warning border-opacity-30" style={{ width: '32px', height: '32px' }}>
-                <i className="bi bi-grid-3x3-gap-fill fs-6"></i>
-              </div>
-              <div>
-                <div className="d-flex align-items-center gap-2">
-                  <h5 className="modal-title fw-bold text-white fs-6 m-0">Select Slot</h5>
-                  <span className="badge bg-warning text-dark fw-bold font-monospace" style={{ fontSize: '0.68rem', letterSpacing: '0.03em' }}>
-                    {tournament.mode || 'Solo'}
-                  </span>
-                </div>
-                <div className="text-secondary extra-small m-0">
-                  {tournament.name}
-                </div>
-              </div>
-            </div>
-            <button type="button" className="btn-close btn-close-white" onClick={onClose}></button>
+    <div className="backdrop">
+      <section className="sheet" role="dialog" aria-modal="true" aria-labelledby="slot-title">
+        <div className="grabber"></div>
+
+        {/* Header matching slot-modal.html */}
+        <header className="head">
+          <div className="mode-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#17130A" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="8" r="4"/>
+              <path d="M4.5 20c.9-3.6 3.9-5.5 7.5-5.5s6.6 1.9 7.5 5.5"/>
+            </svg>
           </div>
-
-          {/* Clean Colorful Toolbar & Quick Legend */}
-          <div className="px-3 py-2 d-flex justify-content-between align-items-center border-bottom border-secondary border-opacity-20" style={{ background: 'rgba(0, 0, 0, 0.25)' }}>
-            <div className="d-flex align-items-center gap-2">
-              <div 
-                className="d-inline-flex align-items-center gap-1.5 py-1 px-2.5 rounded-2"
-                style={{ 
-                  backgroundColor: 'rgba(34, 197, 94, 0.18)', 
-                  border: '1px solid rgba(34, 197, 94, 0.45)',
-                  color: '#4ADE80',
-                  fontWeight: '700',
-                  fontSize: '0.75rem',
-                  letterSpacing: '0.02em'
-                }}
-              >
-                <span className="legend-dot open"></span>
-                <span>{availableCount} OPEN</span>
-              </div>
-              <div 
-                className="d-inline-flex align-items-center gap-1.5 py-1 px-2.5 rounded-2"
-                style={{ 
-                  backgroundColor: 'rgba(239, 68, 68, 0.18)', 
-                  border: '1px solid rgba(239, 68, 68, 0.45)',
-                  color: '#F87171',
-                  fontWeight: '700',
-                  fontSize: '0.75rem',
-                  letterSpacing: '0.02em'
-                }}
-              >
-                <span className="legend-dot taken"></span>
-                <span>{occupiedCount} TAKEN</span>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              className="btn btn-sm btn-warning text-dark fw-bold py-1 px-2.5 d-inline-flex align-items-center gap-1 shadow-sm transition-all"
-              style={{ fontSize: '0.74rem', borderRadius: '7px' }}
-              onClick={handleQuickAutoPick}
-              disabled={availableCount < slotsToSelect}
-            >
-              <i className="bi bi-lightning-charge-fill text-dark"></i>
-              <span>Auto Pick</span>
-            </button>
+          <div className="titles">
+            <h1 id="slot-title">Select Slot</h1>
+            <p>{tournament.mode || 'Solo'} · {tournament.name}</p>
           </div>
+          <button className="icon-btn" id="closeBtn" type="button" aria-label="Close" onClick={handleCloseModal} disabled={spinning}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C9CDDB" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18"/>
+            </svg>
+          </button>
+        </header>
 
-          {/* Search bar if slots > 12 */}
-          {maxPlayers > 12 && (
-            <div className="native-slot-search-wrap">
-              <div className="input-group input-group-sm">
-                <span className="input-group-text native-search-icon">
-                  <i className="bi bi-search"></i>
-                </span>
-                <input
-                  type="text"
-                  className="form-control native-search-input"
-                  placeholder="Search slot # or IGN..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                {searchQuery && (
-                  <button
-                    className="btn native-search-clear"
-                    onClick={() => setSearchQuery('')}
-                  >
-                    <i className="bi bi-x-circle-fill"></i>
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Clean Slot Grid */}
-          <div className="native-slot-body">
-            {loading ? (
-              <div className="text-center py-5">
-                <div className="spinner-border spinner-border-sm text-warning" role="status"></div>
-              </div>
-            ) : filteredSlots.length === 0 ? (
-              <div className="text-center py-4 text-secondary small">
-                No slots found.
-              </div>
-            ) : (
-              <div className="native-slot-grid">
-                {filteredSlots.map((slotNum) => {
-                  const isTaken = isSlotTaken(slotNum);
-                  const isSelected = selectedSlots.some(s => s.toString() === slotNum.toString());
-                  const details = isTaken ? getSlotDetails(slotNum) : null;
-                  const isMine = details?.userId === currentUser?.uid;
-
-                  return (
-                    <button
-                      key={slotNum}
-                      type="button"
-                      className={`native-slot-chip ${
-                        isSelected
-                          ? 'chip-selected'
-                          : isMine
-                          ? 'chip-mine'
-                          : isTaken
-                          ? 'chip-taken'
-                          : 'chip-available'
-                      }`}
-                      onClick={() => handleSlotClick(slotNum, isTaken)}
-                      title={isTaken ? `Booked by: ${details?.username || 'Player'} (Tap to inspect)` : `Slot #${slotNum} - Available`}
-                    >
-                      <div className="chip-top-bar">
-                        <span className="chip-slot-num">#{slotNum < 10 ? `0${slotNum}` : slotNum}</span>
-                        {isSelected ? (
-                          <span className="chip-tag-selected">
-                            <i className="bi bi-check2"></i>
-                          </span>
-                        ) : isMine ? (
-                          <span className="chip-tag-mine">YOU</span>
-                        ) : isTaken ? (
-                          <span className="chip-tag-booked">BOOKED</span>
-                        ) : (
-                          <span className="chip-tag-open">OPEN</span>
-                        )}
-                      </div>
-
-                      <div className="chip-content-wrap">
-                        {isSelected ? (
-                          <div className="chip-selected-badge">
-                            <i className="bi bi-check-circle-fill me-1"></i> Picked
-                          </div>
-                        ) : isTaken ? (
-                          <div className="chip-booked-player">
-                            <div className="player-avatar-mini">
-                              <i className="bi bi-person-fill"></i>
-                            </div>
-                            <span className="player-name-text" title={details?.username}>
-                              {details?.username || 'Player'}
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="chip-open-label">
-                            <i className="bi bi-plus-circle text-success me-1"></i> Tap to Book
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {errorMessage && (
-              <div className="native-slot-error mt-2">
-                <i className="bi bi-exclamation-circle me-1"></i> {errorMessage}
-              </div>
-            )}
+        {/* Status row matching slot-modal.html */}
+        <div className="status">
+          <div className="counts">
+            <span className="open">
+              <span className="dot"></span>
+              <span id="openCount">{availableCount} open</span>
+            </span>
+            <span className="taken">
+              <span id="takenCount">{occupiedCount} taken</span>
+            </span>
           </div>
-
-          {/* Native Bottom Action Bar */}
-          <div className="native-slot-footer">
-            <div className="native-footer-info">
-              <span className="footer-label">Selected</span>
-              <span className="footer-value">
-                {selectedSlots.length > 0
-                  ? selectedSlots.map(s => `#${s < 10 ? `0${s}` : s}`).join(', ')
-                  : 'None'}
-              </span>
-            </div>
-
-            <button
-              type="button"
-              className="native-slot-confirm-btn"
-              onClick={handleConfirm}
-              disabled={loading || selectedSlots.length !== slotsToSelect}
-            >
-              Confirm Slot <i className="bi bi-arrow-right-short fs-5 align-middle"></i>
-            </button>
-          </div>
+          <button 
+            className="auto" 
+            id="autoBtn" 
+            type="button" 
+            onClick={handleAutoPick} 
+            disabled={spinning || availableCount < slotsToSelect}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M13.5 2L5 13.5h6L10 22l9-12h-6.5z"/>
+            </svg>
+            <span id="autoLabel">{spinning ? "Picking…" : "Auto pick"}</span>
+          </button>
         </div>
-      </div>
+
+        {/* Search bar if slots > 12 */}
+        {maxPlayers > 12 && (
+          <div className="native-slot-search-wrap">
+            <div className="input-group input-group-sm">
+              <span className="input-group-text native-search-icon">
+                <i className="bi bi-search"></i>
+              </span>
+              <input
+                type="text"
+                className="form-control native-search-input"
+                placeholder="Search slot # or IGN..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                disabled={spinning}
+              />
+              {searchQuery && (
+                <button
+                  className="btn native-search-clear"
+                  onClick={() => setSearchQuery('')}
+                  disabled={spinning}
+                >
+                  <i className="bi bi-x-circle-fill"></i>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Slots List matching slot-modal.html */}
+        <div className="slots" id="slots" role="radiogroup" aria-label="Available slots">
+          {loading ? (
+            <div className="text-center py-4">
+              <div className="spinner-border spinner-border-sm text-warning" role="status"></div>
+            </div>
+          ) : filteredSlots.length === 0 ? (
+            <div className="text-center py-4 text-secondary small">
+              No slots found.
+            </div>
+          ) : (
+            filteredSlots.map((slotNum) => {
+              const isTaken = isSlotTaken(slotNum);
+              const isSelected = selectedSlots.some(s => s.toString() === slotNum.toString());
+              const details = isTaken ? getSlotDetails(slotNum) : null;
+              const isScanned = scannedSlot === slotNum;
+              const isPopping = poppingSlot === slotNum;
+
+              const label = isTaken
+                ? (details?.username ? details.username : "Taken")
+                : isSelected
+                ? "Selected"
+                : isScanned
+                ? "Picking…"
+                : "Open";
+
+              return (
+                <button
+                  key={slotNum}
+                  type="button"
+                  className={"slot" + (isScanned ? " scan" : "") + (isPopping ? " pop" : "")}
+                  role="radio"
+                  aria-checked={isSelected}
+                  aria-disabled={isTaken}
+                  disabled={spinning}
+                  onClick={() => handleSlotClick(slotNum, isTaken)}
+                >
+                  <div className="num">{pad(slotNum)}</div>
+                  <div className="info">
+                    <span className="name">Slot #{pad(slotNum)}</span>
+                    <span className="state">{label}</span>
+                  </div>
+                  <div className="radio">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#17130A" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M5 12.5l4.5 4.5L19 7.5"/>
+                    </svg>
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        {errorMessage && (
+          <div className="native-slot-error text-danger small text-center fw-bold mt-1">
+            {errorMessage}
+          </div>
+        )}
+
+        {/* Footer CTA matching slot-modal.html */}
+        <div>
+          <button 
+            className="cta" 
+            id="confirmBtn" 
+            type="button" 
+            disabled={loading || spinning || selectedSlots.length !== slotsToSelect}
+            onClick={handleConfirm}
+          >
+            {spinning ? (
+              "Picking your slot…"
+            ) : selectedSlots.length === 0 ? (
+              "Choose a slot to continue"
+            ) : (
+              <>
+                Confirm Slot #{selectedSlots.map(s => pad(Number(s))).join(', ')}{' '}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#17130A" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M5 12h14M13 6l6 6-6 6"/>
+                </svg>
+              </>
+            )}
+          </button>
+          <div className="home-bar"></div>
+        </div>
+      </section>
 
       {/* Inspected Player Slot Detail Modal / Popover */}
       {inspectedSlot && (
@@ -439,7 +508,7 @@ export const SlotSelectionModal: React.FC<SlotSelectionModalProps> = ({
           <div className="modal-dialog modal-dialog-centered modal-sm" onClick={(e) => e.stopPropagation()}>
             <div className="modal-content native-player-popover">
               <div className="d-flex justify-content-between align-items-center mb-3">
-                <span className="fw-bold text-warning small">Slot #{inspectedSlot.slotNum}</span>
+                <span className="fw-bold text-warning small">Slot #{pad(inspectedSlot.slotNum)}</span>
                 <button type="button" className="btn-close btn-close-white small" onClick={() => setInspectedSlot(null)}></button>
               </div>
 
@@ -479,3 +548,4 @@ export const SlotSelectionModal: React.FC<SlotSelectionModalProps> = ({
     </div>
   );
 };
+

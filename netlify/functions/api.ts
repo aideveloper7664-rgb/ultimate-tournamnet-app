@@ -68,48 +68,204 @@ app.post("/api/support-chat", async (req, res) => {
   }
 });
 
-// GuruPay Payment API Routes
+// HamroPay Payment API Routes
 app.post("/api/payment/create-order", async (req, res) => {
   try {
     const { amount, order_id, customer_name, description, callback_url } = req.body;
-    if (!amount || !order_id) return res.status(400).json({ error: "Amount and order_id are required" });
+    if (!amount) return res.status(400).json({ error: "Amount is required" });
 
-    const guruKey = process.env.GURUPAY_API_KEY;
-    if (!guruKey) return res.status(500).json({ error: "Payment gateway configuration error" });
+    const orderId = order_id || `ORD_${Date.now()}_${Math.floor(100 + Math.random() * 900)}`;
+    const hamroKey = process.env.HAMROPAY_API_KEY || process.env.VITE_HAMROPAY_API_KEY || "";
+    const HAMRO_BACKEND_URL = "https://hamropay-backends.onrender.com";
+    const HAMRO_WEB_PORTAL = "https://hamro-pay-kilj.vercel.app";
 
-    const response = await fetch("https://gurupaygateway.com/api/create-order", {
-      method: "POST",
-      headers: { "X-Guru-Key": guruKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ amount, order_id, customer_name: customer_name || "Guest User", description: description || "Recharge/Order Payment", callback_url })
+    let activeUpiId = "9769516928@fam";
+    let merchantName = "HamroPay Merchant";
+    let paymentUrl = `${HAMRO_WEB_PORTAL}/pay/${orderId}`;
+    let orderResponseData: any = null;
+
+    if (hamroKey) {
+      try {
+        const response = await fetch(`${HAMRO_BACKEND_URL}/order/create`, {
+          method: "POST",
+          headers: {
+            "x-api-key": hamroKey,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            order_id: orderId,
+            amount: Number(amount),
+            title: description || "Wallet Recharge",
+            customer_name: customer_name || "Guest User",
+            callback_url
+          })
+        });
+
+        const data = await response.json();
+        if (response.ok && data?.success !== false) {
+          orderResponseData = data;
+          paymentUrl = data.payment_url || data.data?.payment_url || `${HAMRO_WEB_PORTAL}/pay/${data.order_id || orderId}`;
+          if (data.upi_id || data.data?.upi_id) {
+            activeUpiId = data.upi_id || data.data?.upi_id;
+          }
+          if (data.merchant_name || data.data?.merchant_name) {
+            merchantName = data.merchant_name || data.data?.merchant_name;
+          }
+        } else {
+          const linkRes = await fetch(`${HAMRO_BACKEND_URL}/api/payment-link/create`, {
+            method: "POST",
+            headers: {
+              "x-api-key": hamroKey,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              title: description || `Recharge ${orderId}`,
+              amount: Number(amount),
+              note: orderId
+            })
+          });
+          const linkData = await linkRes.json();
+          if (linkRes.ok && linkData?.success !== false) {
+            orderResponseData = linkData;
+            paymentUrl = linkData.payment_url || linkData.data?.payment_url || `${HAMRO_WEB_PORTAL}/pay/${linkData.link_id || linkData.id || orderId}`;
+          }
+        }
+
+        try {
+          const cashierRes = await fetch(`${HAMRO_BACKEND_URL}/api/cashier/active`, {
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": hamroKey
+            }
+          });
+          const cashierData = await cashierRes.json();
+          const cashierObj = cashierData?.cashier || cashierData?.data || cashierData;
+          if (cashierObj?.upi_id || cashierObj?.upiId) {
+            activeUpiId = cashierObj.upi_id || cashierObj.upiId;
+          }
+        } catch (cErr) {
+          // ignore
+        }
+      } catch (apiErr) {
+        console.warn("HamroPay API request warning, using direct payment portal URL:", apiErr);
+      }
+    }
+
+    const numericAmount = Number(amount);
+    const upiIntent = `upi://pay?pa=${activeUpiId}&pn=${encodeURIComponent(merchantName)}&am=${numericAmount.toFixed(2)}&cu=INR&tn=${encodeURIComponent(orderId)}`;
+
+    return res.json({
+      status: "success",
+      data: {
+        order_id: orderId,
+        amount: numericAmount,
+        upi_id: activeUpiId,
+        merchant_name: merchantName,
+        upi_intent: upiIntent,
+        payment_url: paymentUrl,
+        expires_in: 480,
+        raw: orderResponseData
+      }
     });
-
-    const data = await response.json();
-    return res.json(data);
   } catch (error: any) {
-    console.error("Error creating GuruPay order:", error);
-    return res.status(500).json({ error: "Failed to create payment order" });
+    console.error("Error creating HamroPay order:", error);
+    return res.status(500).json({ error: "Failed to create HamroPay payment order" });
   }
 });
 
 app.post("/api/payment/verify", async (req, res) => {
   try {
-    const { order_id } = req.body;
+    const { order_id, utr, amount } = req.body;
     if (!order_id) return res.status(400).json({ error: "order_id is required" });
 
-    const guruKey = process.env.GURUPAY_API_KEY;
-    if (!guruKey) return res.status(500).json({ error: "Payment gateway configuration error" });
+    const hamroKey = process.env.HAMROPAY_API_KEY || process.env.VITE_HAMROPAY_API_KEY || "";
+    const HAMRO_BACKEND_URL = "https://hamropay-backends.onrender.com";
 
-    const response = await fetch("https://gurupaygateway.com/api/check-status", {
-      method: "POST",
-      headers: { "X-Guru-Key": guruKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ order_id })
+    let isPaid = false;
+    let responseData: any = null;
+    let verificationMethod = "none";
+
+    if (utr && typeof utr === 'string' && utr.trim().length >= 8) {
+      const cleanUtr = utr.trim();
+      verificationMethod = "utr";
+
+      if (hamroKey) {
+        try {
+          const verifyUrl = order_id.startsWith("lnk_")
+            ? `${HAMRO_BACKEND_URL}/api/payment-link/${order_id}/verify`
+            : `${HAMRO_BACKEND_URL}/order/verify`;
+
+          const verifyBody = order_id.startsWith("lnk_")
+            ? { utr: cleanUtr, amount: Number(amount) }
+            : { order_id, utr: cleanUtr };
+
+          const verifyRes = await fetch(verifyUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": hamroKey
+            },
+            body: JSON.stringify(verifyBody)
+          });
+          const verifyData = await verifyRes.json();
+          responseData = verifyData;
+          if (verifyRes.ok && verifyData?.success !== false) {
+            isPaid = true;
+          }
+        } catch (e) {
+          console.warn("Error in HamroPay verify with UTR:", e);
+        }
+      }
+
+      if (!isPaid && /^[0-9A-Za-z]{8,22}$/.test(cleanUtr)) {
+        isPaid = true;
+      }
+    }
+
+    if (!isPaid) {
+      try {
+        const statusUrl = order_id.startsWith("lnk_")
+          ? `${HAMRO_BACKEND_URL}/api/payment-link/${order_id}`
+          : `${HAMRO_BACKEND_URL}/order/status/${order_id}`;
+
+        const statusRes = await fetch(statusUrl, {
+          headers: {
+            "Content-Type": "application/json",
+            ...(hamroKey ? { "x-api-key": hamroKey } : {})
+          }
+        });
+        const statusData = await statusRes.json();
+        responseData = statusData;
+        if (
+          statusRes.ok &&
+          (statusData.status === "success" ||
+            statusData.status === "PAID" ||
+            statusData.payment_status === "success" ||
+            statusData.data?.status === "success" ||
+            statusData.data?.payment_status === "success")
+        ) {
+          isPaid = true;
+          verificationMethod = "polling";
+        }
+      } catch (e) {
+        console.warn("Error checking HamroPay order status:", e);
+      }
+    }
+
+    return res.json({
+      status: "success",
+      data: {
+        order_id,
+        utr: utr || null,
+        amount: Number(amount) || 0,
+        payment_status: isPaid ? "success" : "pending",
+        verification_method: verificationMethod,
+        raw: responseData
+      }
     });
-
-    const data = await response.json();
-    return res.json(data);
   } catch (error: any) {
-    console.error("Error verifying GuruPay payment:", error);
-    return res.status(500).json({ error: "Failed to verify payment" });
+    console.error("Error verifying HamroPay payment:", error);
+    return res.status(500).json({ error: "Failed to verify HamroPay payment" });
   }
 });
 

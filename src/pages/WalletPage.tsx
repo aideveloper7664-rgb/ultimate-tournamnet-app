@@ -60,31 +60,27 @@ export const WalletPage: React.FC<WalletPageProps> = ({
       {/* Native Main Balance Card */}
       <div className="wallet-hero-card mb-4">
         <div className="wallet-hero-glow"></div>
-        <div className="d-flex justify-content-between align-items-center mb-3">
+        <div className="d-flex align-items-center mb-3">
           <div className="wallet-brand-title">
             <i className="bi bi-wallet2 text-warning me-2"></i>My Vault & Balance
           </div>
-          <span 
-            className="badge px-3 py-1.5 rounded-pill fw-bold text-white shadow-sm cursor-pointer d-inline-flex align-items-center gap-1"
-            style={{ background: 'linear-gradient(135deg, #047857 0%, #10B981 100%)', fontSize: '0.75rem', letterSpacing: '0.5px' }}
-            onClick={() => {
-              // Show secure wallet info or toast
-              const toast = document.createElement('div');
-              toast.className = 'position-fixed bottom-0 start-50 translate-middle-x mb-4 px-3 py-2 bg-dark text-success border border-success rounded-pill shadow-lg small z-3';
-              toast.innerHTML = '<i class="bi bi-shield-check-fill me-1"></i> 100% Secure Encrypted Wallet';
-              document.body.appendChild(toast);
-              setTimeout(() => toast.remove(), 2500);
-            }}
-            title="Encrypted & Secure"
-          >
-            <i className="bi bi-shield-check"></i>Secure Vault
-          </span>
         </div>
 
         <div className="wallet-header text-start mb-3">
           <div className="balance-label text-uppercase tracking-wider small text-secondary fw-bold mb-1">Total Available Balance</div>
-          <div className="total-balance display-5 fw-bold text-white mb-0" id="walletTotalBalanceEl">
-            ₹ {balance.toFixed(2)}
+          <div className="d-flex justify-content-between align-items-center gap-3">
+            <div className="total-balance display-5 fw-bold text-white mb-0" id="walletTotalBalanceEl">
+              ₹ {balance.toFixed(2)}
+            </div>
+            <button
+              id="btn-add-money"
+              type="button"
+              className="btn btn-custom btn-action btn-add-money btn-add-balance shadow-sm"
+              onClick={onStartRecharge}
+            >
+              <i className="bi bi-plus-circle-fill"></i>
+              <span>Add Cash</span>
+            </button>
           </div>
         </div>
 
@@ -113,18 +109,7 @@ export const WalletPage: React.FC<WalletPageProps> = ({
           </div>
         </div>
 
-
-
         <div className="wallet-actions mt-4">
-          <button
-            id="btn-add-money"
-            type="button"
-            className="btn btn-custom btn-action btn-add-money shadow-sm"
-            onClick={onStartRecharge}
-          >
-            <i className="bi bi-plus-circle-fill"></i>
-            <span>Add Cash</span>
-          </button>
           <button
             id="btn-withdraw-money"
             type="button"

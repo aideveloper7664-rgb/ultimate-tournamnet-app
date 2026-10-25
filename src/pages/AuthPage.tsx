@@ -55,8 +55,11 @@ export const AuthPage: React.FC = () => {
     try {
       await signInWithEmailAndPassword(auth, loginEmail.trim(), loginPassword);
     } catch (err: any) {
-      console.error("Login Error:", err);
-      let m = 'Login failed.';
+      // Clean up console for expected login errors
+      if (err.code !== 'auth/invalid-credential' && err.code !== 'auth/wrong-password') {
+        console.error("Login Error:", err);
+      }
+      let m = 'Login failed. Please check your credentials.';
       switch (err.code) {
         case 'auth/user-not-found':
         case 'auth/wrong-password':
@@ -67,10 +70,10 @@ export const AuthPage: React.FC = () => {
           m = 'Invalid email format.';
           break;
         case 'auth/too-many-requests':
-          m = 'Too many attempts. Reset pass or wait.';
+          m = 'Too many attempts. Reset password or try again later.';
           break;
         case 'auth/network-request-failed':
-          m = 'Network error.';
+          m = 'Network error. Please check your connection.';
           break;
         default:
           m = err.message || 'Login error.';
@@ -160,6 +163,10 @@ export const AuthPage: React.FC = () => {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
     } catch (err: any) {
+      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+        // User cancelled or closed the sign-in popup window intentionally
+        return;
+      }
       console.error("Google Sign In Error:", err);
       setErrorMessage(`Google Sign-In failed: ${err.message}`);
     } finally {

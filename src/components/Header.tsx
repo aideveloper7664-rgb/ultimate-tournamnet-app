@@ -16,11 +16,19 @@ export const Header: React.FC<HeaderProps> = ({ onOpenNotifications, onOpenWorld
     showSection,
     selectedGameName,
     unreadNotificationsCount,
-    themeMode,
-    toggleTheme
+    setIsDrawerOpen
   } = useAuth();
 
-  const isSubPage = ['tournaments-section', 'recharge-section', 'earnings-section'].includes(currentSection);
+  const isSubPage = [
+    'tournaments-section',
+    'recharge-section',
+    'earnings-section',
+    'earn-section',
+    'spinwheel-section',
+    'scratchcard-section',
+    'lottery-section',
+    'shop-section'
+  ].includes(currentSection);
   const defaultTitleVisible = !isSubPage;
 
   let pageTitle = '';
@@ -34,6 +42,21 @@ export const Header: React.FC<HeaderProps> = ({ onOpenNotifications, onOpenWorld
         break;
       case 'earnings-section':
         pageTitle = 'Earnings History';
+        break;
+      case 'earn-section':
+        pageTitle = 'Earn Rewards';
+        break;
+      case 'spinwheel-section':
+        pageTitle = 'Spin to Win';
+        break;
+      case 'scratchcard-section':
+        pageTitle = 'Scratch Card';
+        break;
+      case 'lottery-section':
+        pageTitle = 'Lucky Draw';
+        break;
+      case 'shop-section':
+        pageTitle = 'Gaming Store';
         break;
     }
   }
@@ -72,7 +95,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenNotifications, onOpenWorld
         />
         {defaultTitleVisible && (
           <div className="header-title">
-            Welcome <span>{displayName}</span>
+            Welcome <span>{displayName} {userProfile?.vipActive && '👑'}</span>
           </div>
         )}
         {isSubPage && (
@@ -83,14 +106,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenNotifications, onOpenWorld
       </div>
 
       <div className="header-right">
-        <button
-          className="theme-toggle-btn"
-          onClick={toggleTheme}
-          title={themeMode === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-        >
-          <i className={themeMode === 'dark' ? 'bi bi-sun-fill text-warning' : 'bi bi-moon-stars-fill text-primary'}></i>
-        </button>
-
         <button
           className="world-chat-icon-btn"
           onClick={onOpenWorldChat}

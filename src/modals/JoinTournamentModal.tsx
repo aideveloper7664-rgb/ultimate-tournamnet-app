@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Tournament, Teammate } from '../types';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -10,7 +10,6 @@ import {
   serverTimestamp,
   recordTransaction
 } from '../firebase';
-import { StatusMessage } from '../components/StatusMessage';
 
 interface JoinTournamentModalProps {
   tournament: Tournament | null;
@@ -35,6 +34,8 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
   const [statusMessage, setStatusMessage] = useState<{ msg: string; type: 'success' | 'danger' | 'warning' } | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const usernameInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     if (userProfile) {
       setUsername(userProfile.username || userProfile.displayName || '');
@@ -51,6 +52,25 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
       setTeammates([]);
     }
   }, [tournament]);
+
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => {
+        usernameInputRef.current?.focus();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen || !tournament) return null;
 
@@ -75,14 +95,14 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
     e.preventDefault();
     if (!currentUser) return;
 
-    if (!username.trim() || !gameUid.trim()) {
-      setStatusMessage({ msg: "Your Player Username and Game UID are required.", type: 'warning' });
+    if (username.trim().length < 2 || gameUid.trim().length < 8) {
+      setStatusMessage({ msg: "Please fill in a valid Username (min 2 chars) and Game UID (min 8 digits).", type: 'warning' });
       return;
     }
 
     for (let i = 0; i < teammates.length; i++) {
-      if (!teammates[i].username.trim() || !teammates[i].gameUid.trim()) {
-        setStatusMessage({ msg: `All details for Teammate ${i + 2} are required.`, type: 'warning' });
+      if (teammates[i].username.trim().length < 2 || teammates[i].gameUid.trim().length < 8) {
+        setStatusMessage({ msg: `Valid details for Teammate ${i + 2} are required (Username min 2 chars, UID min 8 digits).`, type: 'warning' });
         return;
       }
     }
@@ -96,7 +116,7 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
     try {
       transactionResult = await runTransaction(uRef, (profileData) => {
         if (!profileData) throw new Error("User profile missing.");
-        if ((profileData.balance || 0) < totalFee) throw new Error("Insufficient balance.");
+        if ((profileData.balance || 0) < totalFee) throw new Error("Insufficient wallet balance.");
         if (profileData.joinedTournaments?.[tId]) {
           return;
         }
@@ -148,12 +168,11 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
       );
 
       await reloadUserProfile();
-      alert(`Joined successfully! ₹ ${totalFee.toFixed(2)} deducted.`);
       onSuccess();
       onClose();
     } catch (err: any) {
       console.error("Join failed:", err);
-      setStatusMessage({ msg: `Failed: ${err.message}`, type: 'danger' });
+      setStatusMessage({ msg: err.message || "Failed to join match.", type: 'danger' });
 
       if (transactionResult?.committed) {
         console.error("CRITICAL: Balance deducted but failed to update tournament! Attempting refund.");
@@ -171,11 +190,11 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
             totalFee,
             `Refund Failed Join: ${tournament.name || 'Tournament'}`
           );
-          alert("Join failed, but your balance was refunded.");
+          setStatusMessage({ msg: "Join failed, but your wallet balance was refunded.", type: 'warning' });
           await reloadUserProfile();
         } catch (refundError) {
           console.error("CRITICAL: FAILED TO REFUND BALANCE!", refundError);
-          alert(`Join failed. CRITICAL: Failed to refund balance (₹ ${totalFee.toFixed(2)})! Contact support immediately.`);
+          setStatusMessage({ msg: `Join failed. Failed to refund balance (₹ ${totalFee.toFixed(2)})! Contact support.`, type: 'danger' });
         }
       }
     } finally {
@@ -183,163 +202,186 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
     }
   };
 
+  const isTeammatesValid = teammates.every(tm => tm.username.trim().length >= 2 && tm.gameUid.trim().length >= 8);
+  const isValid = username.trim().length >= 2 && gameUid.trim().length >= 8 && isTeammatesValid;
+
+  const modeName = tournament.mode || (tournament.slotConfig?.type ? tournament.slotConfig.type.toUpperCase() : "LONE WOLF");
+
+  const formattedSlots = selectedSlots && selectedSlots.length > 0
+    ? selectedSlots.map(s => typeof s === 'number' ? `#${s < 10 ? '0' + s : s}` : `#${s}`).join(', ')
+    : '#01';
+
   return (
-    <div className="modal fade show d-block native-slot-modal-backdrop" tabIndex={-1}>
-      <div className="modal-dialog modal-dialog-centered native-slot-dialog">
-        <div className="modal-content native-slot-container">
-          
-          {/* App Header */}
-          <div className="modal-header border-bottom border-secondary border-opacity-30 px-3 py-2.5 d-flex justify-content-between align-items-center" style={{ background: 'linear-gradient(180deg, #181B34 0%, #101328 100%)' }}>
-            <div className="d-flex align-items-center gap-2">
-              <div className="rounded-2 bg-warning bg-opacity-15 p-1.5 d-flex align-items-center justify-content-center text-warning border border-warning border-opacity-30" style={{ width: '32px', height: '32px' }}>
-                <i className="bi bi-controller fs-6"></i>
-              </div>
-              <div>
-                <h5 className="modal-title fw-bold text-white fs-6 m-0">Player Registration</h5>
-                <div className="text-secondary extra-small m-0 text-truncate" style={{ maxWidth: '220px' }}>
-                  {tournament.name}
-                </div>
-              </div>
-            </div>
-            <button type="button" className="btn-close btn-close-white" onClick={onClose}></button>
+    <div
+      className="player-reg-backdrop"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="reg-title"
+    >
+      <div className="player-reg-sheet" onClick={(e) => e.stopPropagation()}>
+        {/* Grabber handle */}
+        <div className="grabber"></div>
+
+        {/* Header */}
+        <div className="head">
+          <div className="mode-icon">
+            <i className="bi bi-controller"></i>
           </div>
+          <div className="titles">
+            <h2 id="reg-title">Player Registration</h2>
+            <p>{modeName}</p>
+          </div>
+          <button type="button" className="icon-btn" onClick={onClose} aria-label="Close">
+            <i className="bi bi-x-lg"></i>
+          </button>
+        </div>
 
-          <div className="modal-body p-3">
-            {/* Slot & Fee Highlight Strip */}
-            <div className="d-flex align-items-center justify-content-between p-2.5 mb-3 rounded-3" style={{ background: 'linear-gradient(135deg, rgba(250, 204, 21, 0.08) 0%, rgba(15, 23, 42, 0.6) 100%)', border: '1px solid rgba(250, 204, 21, 0.25)' }}>
-              {selectedSlots && selectedSlots.length > 0 ? (
-                <div className="d-flex align-items-center gap-1.5">
-                  <span className="text-secondary extra-small text-uppercase fw-bold">Slot:</span>
-                  <span className="badge bg-warning text-dark fw-bold font-monospace px-2 py-1" style={{ fontSize: '0.75rem' }}>
-                    #{selectedSlots.map(s => s < 10 ? `0${s}` : s).join(', #')}
-                  </span>
-                </div>
-              ) : (
-                <div className="text-secondary extra-small fw-bold">Auto Slot</div>
-              )}
-
-              <div className="d-flex align-items-center gap-1.5">
-                <span className="text-secondary extra-small text-uppercase fw-bold">Entry:</span>
-                <span className="text-warning fw-bold font-monospace" style={{ fontSize: '0.95rem' }}>
-                  ₹{totalFee.toFixed(2)}
-                </span>
-              </div>
-            </div>
-
-            <form onSubmit={handleConfirmAndJoin}>
-              {/* Leader / Player 1 Details */}
-              <div className="mb-2.5">
-                <label className="form-label extra-small text-secondary fw-bold text-uppercase mb-1 d-flex align-items-center gap-1">
-                  <i className="bi bi-person-fill text-danger"></i>
-                  <span>Game Username</span>
-                </label>
-                <div className="input-group">
-                  <span className="input-group-text bg-black bg-opacity-40 border-secondary border-opacity-40 text-secondary">
-                    <i className="bi bi-person-badge text-warning"></i>
-                  </span>
-                  <input
-                    type="text"
-                    className="form-control bg-dark border-secondary border-opacity-40 text-white shadow-none"
-                    placeholder="e.g. OP_GAMER_99"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="mb-3">
-                <label className="form-label extra-small text-secondary fw-bold text-uppercase mb-1 d-flex align-items-center gap-1">
-                  <i className="bi bi-hash text-warning"></i>
-                  <span>Game UID (Free Fire)</span>
-                </label>
-                <div className="input-group">
-                  <span className="input-group-text bg-black bg-opacity-40 border-secondary border-opacity-40 text-secondary">
-                    <i className="bi bi-fingerprint text-warning"></i>
-                  </span>
-                  <input
-                    type="text"
-                    className="form-control bg-dark border-secondary border-opacity-40 text-white font-monospace shadow-none"
-                    placeholder="e.g. 1029384756"
-                    value={gameUid}
-                    onChange={(e) => setGameUid(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Teammates Section if Duo / Squad */}
-              {teammates.length > 0 && (
-                <div className="mt-3 pt-2 border-top border-secondary border-opacity-25">
-                  <div className="d-flex align-items-center gap-1.5 mb-2.5 text-warning extra-small fw-bold text-uppercase">
-                    <i className="bi bi-people-fill"></i>
-                    <span>Teammates Details</span>
-                  </div>
-                  {teammates.map((tm, idx) => (
-                    <div key={idx} className="mb-2.5 p-2.5 rounded-3 bg-black bg-opacity-40 border border-secondary border-opacity-30">
-                      <div className="d-flex justify-content-between align-items-center mb-2">
-                        <span className="extra-small fw-bold text-light">Player {idx + 2}</span>
-                        <span className="badge bg-secondary bg-opacity-25 text-warning extra-small">Teammate</span>
-                      </div>
-                      <div className="row g-2">
-                        <div className="col-6">
-                          <input
-                            type="text"
-                            className="form-control form-control-sm bg-dark border-secondary border-opacity-40 text-white shadow-none"
-                            placeholder="IGN Username"
-                            value={tm.username}
-                            onChange={(e) => handleTeammateChange(idx, 'username', e.target.value)}
-                            required
-                          />
-                        </div>
-                        <div className="col-6">
-                          <input
-                            type="text"
-                            className="form-control form-control-sm bg-dark border-secondary border-opacity-40 text-white font-monospace shadow-none"
-                            placeholder="Game UID"
-                            value={tm.gameUid}
-                            onChange={(e) => handleTeammateChange(idx, 'gameUid', e.target.value)}
-                            required
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <StatusMessage
-                message={statusMessage?.msg}
-                type={statusMessage?.type}
-                onDismiss={() => setStatusMessage(null)}
-              />
-
-              <div className="d-flex gap-2 mt-3 pt-2 border-top border-secondary border-opacity-25">
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary text-light btn-sm px-3 flex-grow-1"
-                  style={{ borderRadius: '9px' }}
-                  onClick={onClose}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-warning text-dark fw-bold btn-sm px-4 flex-grow-1 d-inline-flex align-items-center justify-content-center gap-1.5 shadow-sm"
-                  style={{ borderRadius: '9px' }}
-                  disabled={loading}
-                >
-                  {loading ? <span className="spinner-border spinner-border-sm"></span> : (
-                    <>
-                      <span>Join Match</span>
-                      <i className="bi bi-arrow-right-short fs-5"></i>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
+        {/* Summary strip */}
+        <div className="summary">
+          <div className="cell">
+            <span className="lbl">SLOT</span>
+            <span className="chip">{formattedSlots}</span>
+          </div>
+          <div className="divider"></div>
+          <div className="cell right">
+            <span className="lbl">ENTRY FEE</span>
+            <span className="fee">₹{totalFee.toFixed(2)}</span>
           </div>
         </div>
+
+        <form onSubmit={handleConfirmAndJoin}>
+          {/* Fields */}
+          <div className="fields">
+            {/* Game username */}
+            <div className="group">
+              <label htmlFor="reg-username">Game username</label>
+              <div className="field">
+                <div className="ico">
+                  <i className="bi bi-person-fill"></i>
+                </div>
+                <input
+                  id="reg-username"
+                  ref={usernameInputRef}
+                  type="text"
+                  placeholder="e.g. OP_GAMER_99"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Game UID */}
+            <div className="group">
+              <label htmlFor="reg-game-uid">
+                Game UID <span className="sub">(Free Fire)</span>
+              </label>
+              <div className="field">
+                <div className="ico">
+                  <i className="bi bi-hash"></i>
+                </div>
+                <input
+                  id="reg-game-uid"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="e.g. 1029384756"
+                  value={gameUid}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 12);
+                    setGameUid(val);
+                  }}
+                  required
+                />
+              </div>
+              {gameUid.length > 0 && gameUid.length < 8 && (
+                <div className="error-text">UID should be at least 8 digits.</div>
+              )}
+            </div>
+
+            {/* Teammates section if any */}
+            {teammates.length > 0 && (
+              <div className="mt-2 pt-3 border-top border-secondary border-opacity-25">
+                <label className="text-warning extra-small fw-bold text-uppercase mb-2 d-block">
+                  Teammates Details
+                </label>
+                {teammates.map((tm, idx) => (
+                  <div key={idx} className="p-3 mb-2 rounded-3" style={{ background: '#1A1D26', border: '1px solid #272B38' }}>
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                      <span className="small fw-bold text-light">Player {idx + 2}</span>
+                    </div>
+                    <div className="d-flex flex-column gap-2">
+                      <input
+                        type="text"
+                        className="form-control bg-dark border-secondary border-opacity-40 text-white form-control-sm"
+                        placeholder="IGN Username"
+                        value={tm.username}
+                        onChange={(e) => handleTeammateChange(idx, 'username', e.target.value)}
+                        required
+                      />
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        className="form-control bg-dark border-secondary border-opacity-40 text-white form-control-sm font-monospace"
+                        placeholder="Game UID"
+                        value={tm.gameUid}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 12);
+                          handleTeammateChange(idx, 'gameUid', val);
+                        }}
+                        required
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Info line */}
+          <div className="info">
+            ₹{totalFee.toFixed(2)} will be deducted from your wallet.
+          </div>
+
+          {/* Status / Error message */}
+          {statusMessage && (
+            <div className="submit-error">
+              <i className="bi bi-exclamation-triangle-fill"></i>
+              <span>{statusMessage.msg}</span>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="actions">
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={onClose}
+              disabled={loading}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={loading || !isValid}
+            >
+              {loading ? (
+                <>
+                  <span className="spinner-border spinner-border-sm"></span>
+                  <span>Joining…</span>
+                </>
+              ) : (
+                <>
+                  <span>Join Match</span>
+                  <i className="bi bi-arrow-right"></i>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
