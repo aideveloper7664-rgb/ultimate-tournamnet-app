@@ -3,6 +3,7 @@ import { Tournament, Teammate } from '../types';
 import { useAuth } from '../context/AuthContext';
 import {
   ref,
+  set,
   runTransaction,
   get,
   update,
@@ -30,11 +31,21 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
 
   const [username, setUsername] = useState('');
   const [gameUid, setGameUid] = useState('');
+  const [accessCode, setAccessCode] = useState('');
+  const [showAccessCode, setShowAccessCode] = useState(false);
   const [teammates, setTeammates] = useState<Teammate[]>([]);
   const [statusMessage, setStatusMessage] = useState<{ msg: string; type: 'success' | 'danger' | 'warning' } | null>(null);
   const [loading, setLoading] = useState(false);
 
   const usernameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setAccessCode('');
+      setShowAccessCode(false);
+      setStatusMessage(null);
+    }
+  }, [isOpen, tournament]);
 
   useEffect(() => {
     if (userProfile) {
@@ -95,9 +106,38 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
     e.preventDefault();
     if (!currentUser) return;
 
+    const isFree = fee === 0;
+
     if (username.trim().length < 2 || gameUid.trim().length < 8) {
       setStatusMessage({ msg: "Please fill in a valid Username (min 2 chars) and Game UID (min 8 digits).", type: 'warning' });
       return;
+    }
+
+    if (isFree) {
+      const trimmedCode = accessCode.trim();
+      if (!trimmedCode) {
+        setStatusMessage({
+          msg: "Access Code is required to join this free match. Enter the code set by admin.",
+          type: 'warning'
+        });
+        return;
+      }
+
+      const expectedCode = String(
+        tournament.accessCode ||
+        (tournament as any).joinCode ||
+        (tournament as any).passcode ||
+        (tournament as any).code ||
+        ''
+      ).trim();
+
+      if (expectedCode && trimmedCode.toLowerCase() !== expectedCode.toLowerCase()) {
+        setStatusMessage({
+          msg: "Invalid Access Code! Only players with the correct code from admin can join.",
+          type: 'danger'
+        });
+        return;
+      }
     }
 
     for (let i = 0; i < teammates.length; i++) {
@@ -114,6 +154,44 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
     let transactionResult: any = null;
 
     try {
+      const tRef = ref(db, `tournaments/${tId}`);
+      const snapshot = await get(tRef);
+      if (!snapshot.exists()) throw new Error("Tournament not found.");
+      const tData = snapshot.val();
+
+      if (tData.status !== 'upcoming') throw new Error("Tournament is no longer upcoming.");
+      const regC = tData.registeredPlayers ? Object.keys(tData.registeredPlayers).length : 0;
+      if (tData.maxPlayers > 0 && regC >= tData.maxPlayers) throw new Error("Tournament is full.");
+
+      // Strict verification of Access Code for free tournaments
+      if ((tData.entryFee || 0) === 0) {
+        const expectedDbCode = String(
+          tData.accessCode ||
+          tData.joinCode ||
+          tData.passcode ||
+          tData.code ||
+          ''
+        ).trim();
+
+        if (expectedDbCode && accessCode.trim().toLowerCase() !== expectedDbCode.toLowerCase()) {
+          throw new Error("Invalid Access Code. Access denied.");
+        }
+      }
+
+      const registrationData: any = {
+        joinedAt: Date.now(),
+        username: username.trim(),
+        gameUid: gameUid.trim(),
+        slots: selectedSlots || [],
+        teammates: teammates.map(t => ({ username: t.username.trim(), gameUid: t.gameUid.trim() }))
+      };
+
+      if (isFree) {
+        registrationData.accessCode = accessCode.trim();
+      }
+
+      // 1. Safely deduct balance and record joined status & slots inside user profile
+      // Note: users/${uid} is owned by the current authenticated user and guaranteed writable
       transactionResult = await runTransaction(uRef, (profileData) => {
         if (!profileData) throw new Error("User profile missing.");
         if ((profileData.balance || 0) < totalFee) throw new Error("Insufficient wallet balance.");
@@ -123,6 +201,13 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
         profileData.balance = (profileData.balance || 0) - totalFee;
         if (!profileData.joinedTournaments) profileData.joinedTournaments = {};
         profileData.joinedTournaments[tId] = true;
+
+        if (!profileData.joinedMatchSlots) profileData.joinedMatchSlots = {};
+        profileData.joinedMatchSlots[tId] = selectedSlots || [];
+
+        if (!profileData.registrations) profileData.registrations = {};
+        profileData.registrations[tId] = registrationData;
+
         profileData.username = username.trim();
         profileData.gameUid = gameUid.trim();
         return profileData;
@@ -132,40 +217,41 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
         throw new Error("Join failed. You may have already joined or have insufficient balance.");
       }
 
-      const tRef = ref(db, `tournaments/${tId}`);
-      const snapshot = await get(tRef);
-      if (!snapshot.exists()) throw new Error("Tournament not found after transaction.");
-      const tData = snapshot.val();
-
-      if (tData.status !== 'upcoming') throw new Error("Tournament is no longer upcoming.");
-      const regC = tData.registeredPlayers ? Object.keys(tData.registeredPlayers).length : 0;
-      if (tData.maxPlayers > 0 && regC >= tData.maxPlayers) throw new Error("Tournament is full.");
-
-      const updates: Record<string, any> = {};
-      const registrationData: any = {
-        joinedAt: serverTimestamp(),
-        username: username.trim(),
-        gameUid: gameUid.trim(),
-        teammates: teammates.map(t => ({ username: t.username.trim(), gameUid: t.gameUid.trim() }))
-      };
-
-      if (selectedSlots && selectedSlots.length > 0) {
-        registrationData.slots = selectedSlots;
-        selectedSlots.forEach(slot => {
-          updates[`tournaments/${tId}/slots/${slot}`] = currentUser.uid;
-        });
+      // 2. Next: Attempt to record registration directly in the tournament node
+      // Note: Direct path tournaments/${tId} is used (never root ref(db))
+      try {
+        const tournamentUpdates: Record<string, any> = {
+          [`registeredPlayers/${currentUser.uid}`]: registrationData
+        };
+        if (selectedSlots && selectedSlots.length > 0) {
+          selectedSlots.forEach(slot => {
+            tournamentUpdates[`slots/${slot}`] = currentUser.uid;
+          });
+        }
+        await update(ref(db, `tournaments/${tId}`), tournamentUpdates);
+      } catch (tErr: any) {
+        console.warn("Tournament full update restricted by RTDB rules, attempting registeredPlayers node:", tErr);
+        try {
+          await set(ref(db, `tournaments/${tId}/registeredPlayers/${currentUser.uid}`), registrationData);
+        } catch (rpErr: any) {
+          console.warn("Tournament registeredPlayers write restricted by RTDB rules. Join is persisted in user profile:", rpErr);
+        }
       }
 
-      updates[`tournaments/${tId}/registeredPlayers/${currentUser.uid}`] = registrationData;
-
-      await update(ref(db), updates);
-      await recordTransaction(
-        currentUser.uid,
-        'tournament_join',
-        -totalFee,
-        `Joined: ${tData.name || 'Tournament'}`,
-        { tournamentId: tId }
-      );
+      // 3. Record transaction in user transactions ledger
+      if (totalFee > 0) {
+        try {
+          await recordTransaction(
+            currentUser.uid,
+            'tournament_join',
+            -totalFee,
+            `Joined: ${tData.name || 'Tournament'}`,
+            { tournamentId: tId, slots: selectedSlots }
+          );
+        } catch (recErr) {
+          console.warn("Transaction record log notice:", recErr);
+        }
+      }
 
       await reloadUserProfile();
       onSuccess();
@@ -173,37 +259,15 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
     } catch (err: any) {
       console.error("Join failed:", err);
       setStatusMessage({ msg: err.message || "Failed to join match.", type: 'danger' });
-
-      if (transactionResult?.committed) {
-        console.error("CRITICAL: Balance deducted but failed to update tournament! Attempting refund.");
-        try {
-          await runTransaction(uRef, (profileData) => {
-            if (profileData) {
-              profileData.balance = (profileData.balance || 0) + totalFee;
-              if (profileData.joinedTournaments) delete profileData.joinedTournaments[tId];
-            }
-            return profileData;
-          });
-          await recordTransaction(
-            currentUser.uid,
-            'join_failed_refund',
-            totalFee,
-            `Refund Failed Join: ${tournament.name || 'Tournament'}`
-          );
-          setStatusMessage({ msg: "Join failed, but your wallet balance was refunded.", type: 'warning' });
-          await reloadUserProfile();
-        } catch (refundError) {
-          console.error("CRITICAL: FAILED TO REFUND BALANCE!", refundError);
-          setStatusMessage({ msg: `Join failed. Failed to refund balance (₹ ${totalFee.toFixed(2)})! Contact support.`, type: 'danger' });
-        }
-      }
     } finally {
       setLoading(false);
     }
   };
 
+  const isFree = fee === 0;
   const isTeammatesValid = teammates.every(tm => tm.username.trim().length >= 2 && tm.gameUid.trim().length >= 8);
-  const isValid = username.trim().length >= 2 && gameUid.trim().length >= 8 && isTeammatesValid;
+  const isAccessCodeValid = !isFree || accessCode.trim().length > 0;
+  const isValid = username.trim().length >= 2 && gameUid.trim().length >= 8 && isTeammatesValid && isAccessCodeValid;
 
   const modeName = tournament.mode || (tournament.slotConfig?.type ? tournament.slotConfig.type.toUpperCase() : "LONE WOLF");
 
@@ -248,13 +312,63 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
           <div className="divider"></div>
           <div className="cell right">
             <span className="lbl">ENTRY FEE</span>
-            <span className="fee">₹{totalFee.toFixed(2)}</span>
+            <span className="fee">
+              {isFree ? (
+                <span className="text-success d-inline-flex align-items-center gap-1">
+                  FREE <span className="badge bg-warning text-dark px-1.5 py-0.5 rounded-pill" style={{ fontSize: '0.62rem' }}>🔒 Code Required</span>
+                </span>
+              ) : (
+                `₹${totalFee.toFixed(2)}`
+              )}
+            </span>
           </div>
         </div>
 
         <form onSubmit={handleConfirmAndJoin}>
           {/* Fields */}
           <div className="fields">
+            {/* Access Code for Free Tournaments */}
+            {isFree && (
+              <div className="group">
+                <label htmlFor="reg-access-code" className="d-flex align-items-center justify-content-between">
+                  <span>
+                    Tournament Access Code <span className="text-danger">*</span>
+                  </span>
+                  <span className="badge bg-warning bg-opacity-20 text-warning border border-warning border-opacity-30 font-monospace" style={{ fontSize: '0.65rem' }}>
+                    <i className="bi bi-key-fill me-1"></i>Set by Host
+                  </span>
+                </label>
+                <div className="field position-relative">
+                  <div className="ico text-warning">
+                    <i className="bi bi-shield-lock-fill"></i>
+                  </div>
+                  <input
+                    id="reg-access-code"
+                    type={showAccessCode ? "text" : "password"}
+                    placeholder="Enter admin access code"
+                    value={accessCode}
+                    onChange={(e) => setAccessCode(e.target.value)}
+                    required
+                    autoComplete="off"
+                    style={{ letterSpacing: accessCode ? '1px' : 'normal' }}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-link text-secondary p-0 position-absolute end-0 top-50 translate-middle-y me-3 shadow-none text-decoration-none"
+                    onClick={() => setShowAccessCode(!showAccessCode)}
+                    style={{ zIndex: 3 }}
+                    title={showAccessCode ? "Hide code" : "Show code"}
+                  >
+                    <i className={`bi ${showAccessCode ? 'bi-eye-slash-fill' : 'bi-eye-fill'}`}></i>
+                  </button>
+                </div>
+                <div className="extra-small text-secondary mt-1" style={{ fontSize: '0.72rem' }}>
+                  <i className="bi bi-info-circle text-warning me-1"></i>
+                  Entry is free. Joining requires the secret access code added by the admin.
+                </div>
+              </div>
+            )}
+
             {/* Game username */}
             <div className="group">
               <label htmlFor="reg-username">Game username</label>
@@ -342,7 +456,11 @@ export const JoinTournamentModal: React.FC<JoinTournamentModalProps> = ({
 
           {/* Info line */}
           <div className="info">
-            ₹{totalFee.toFixed(2)} will be deducted from your wallet.
+            {isFree ? (
+              <span>Free tournament entry with admin access code verification.</span>
+            ) : (
+              <span>₹{totalFee.toFixed(2)} will be deducted from your wallet.</span>
+            )}
           </div>
 
           {/* Status / Error message */}

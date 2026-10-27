@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useHamroPay, HamroVerifyResult, sanitizeAmount } from '../hooks/useHamroPay';
+import { ParticleBackground } from './ParticleBackground';
 
 interface HamroPayCheckoutProps {
   amount: number | string;
@@ -144,7 +145,8 @@ export const HamroPayCheckout: React.FC<HamroPayCheckoutProps> = ({
       </div>
 
       {/* Content Area */}
-      <div style={{ flex: 1, position: 'relative', background: '#000', overflow: 'hidden' }}>
+      <div style={{ flex: 1, position: 'relative', background: '#0b0f19', overflow: 'hidden' }}>
+        <ParticleBackground />
         {loading && !order && (
           <div
             style={{

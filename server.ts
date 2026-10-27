@@ -410,6 +410,378 @@ app.get("/payment-return", (req, res) => {
   res.redirect(`/payment-callback?hp_order=${encodeURIComponent(String(hpOrder))}&hp_result=${encodeURIComponent(String(hpResult))}`);
 });
 
+// =====================================================================
+// P2P TRANSFER API ENDPOINTS & LOGIC
+// =====================================================================
+const FIREBASE_RTDB_URL = "https://ultiamterdt-default-rtdb.asia-southeast1.firebasedatabase.app";
+
+interface ServerTransferRecord {
+  id: string;
+  senderUid: string;
+  senderName: string;
+  senderEmail: string;
+  senderGameUid?: string;
+  receiverUid: string;
+  receiverName: string;
+  receiverEmail: string;
+  receiverGameUid?: string;
+  amount: number;
+  feePercent: number;
+  feeAmount: number;
+  totalHold: number;
+  status: 'pending' | 'completed' | 'rejected';
+  note?: string;
+  createdAt: number;
+}
+
+interface ServerUserProfile {
+  uid: string;
+  displayName?: string;
+  email?: string;
+  gameUid?: string;
+  username?: string;
+  balance: number;
+}
+
+const serverUsers = new Map<string, ServerUserProfile>();
+const serverTransfers = new Map<string, ServerTransferRecord>();
+
+// Helper to extract bearer token
+function getAuthToken(authHeader?: string): string {
+  if (!authHeader) return '';
+  if (authHeader.startsWith('Bearer ')) return authHeader.slice(7).trim();
+  return authHeader.trim();
+}
+
+// Helper to fetch user data or all users from RTDB if token is present
+async function fetchRtdbUsers(token?: string): Promise<Record<string, any> | null> {
+  if (!token) return null;
+  try {
+    const res = await fetch(`${FIREBASE_RTDB_URL}/users.json?auth=${encodeURIComponent(token)}`);
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.warn("RTDB users fetch notice:", e);
+  }
+  return null;
+}
+
+// 1. Fee inspection endpoint
+app.get("/api/transfers/fee", (_req, res) => {
+  return res.json({
+    success: true,
+    feePercent: 10
+  });
+});
+
+// 2. GET /api/transfers - returns user's transfer requests
+app.get("/api/transfers", async (req, res) => {
+  try {
+    const userId = (req.headers["x-user-id"] || req.query.userId || req.query.uid || "") as string;
+    const token = getAuthToken(req.headers.authorization);
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: "User ID required to fetch transfers"
+      });
+    }
+
+    // Attempt to pull latest from RTDB if auth token is available
+    if (token) {
+      try {
+        const rtdbRes = await fetch(`${FIREBASE_RTDB_URL}/transferRequests.json?auth=${encodeURIComponent(token)}`);
+        if (rtdbRes.ok) {
+          const data = await rtdbRes.json();
+          if (data && typeof data === 'object') {
+            for (const [key, val] of Object.entries<any>(data)) {
+              if (val && typeof val === 'object' && val.senderUid) {
+                serverTransfers.set(key, {
+                  id: val.id || key,
+                  senderUid: val.senderUid,
+                  senderName: val.senderName || val.senderEmail || 'Sender',
+                  senderEmail: val.senderEmail || '',
+                  senderGameUid: val.senderGameUid || '',
+                  receiverUid: val.receiverUid || '',
+                  receiverName: val.receiverName || val.receiverEmail || 'Recipient',
+                  receiverEmail: val.receiverEmail || '',
+                  receiverGameUid: val.receiverGameUid || '',
+                  amount: Number(val.amount || 0),
+                  feePercent: Number(val.feePercent || 10),
+                  feeAmount: Number(val.feeAmount || 0),
+                  totalHold: Number(val.totalHold || val.totalDeducted || val.amount || 0),
+                  status: val.status || 'pending',
+                  note: val.note || '',
+                  createdAt: typeof val.createdAt === 'number' ? val.createdAt : (typeof val.timestamp === 'number' ? val.timestamp : Date.now())
+                });
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("RTDB transfer sync notice:", e);
+      }
+    }
+
+    // Filter transfers where current user is sender or receiver
+    const userTransfers: ServerTransferRecord[] = [];
+    for (const item of serverTransfers.values()) {
+      if (item.senderUid === userId || item.receiverUid === userId) {
+        userTransfers.push(item);
+      }
+    }
+
+    // Sort newest first
+    userTransfers.sort((a, b) => b.createdAt - a.createdAt);
+
+    return res.json({
+      success: true,
+      transfers: userTransfers
+    });
+  } catch (error: any) {
+    console.error("Error in GET /api/transfers:", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Failed to retrieve transfers"
+    });
+  }
+});
+
+// 3. POST /api/transfers - handles recipient resolution, validation, 10% fee calculation, balance hold, and pending status
+app.post("/api/transfers", async (req, res) => {
+  try {
+    const { recipient, amount, note, sender: bodySender } = req.body;
+    const headerUserId = req.headers["x-user-id"] as string | undefined;
+    const senderUid = headerUserId || bodySender?.uid;
+    const token = getAuthToken(req.headers.authorization);
+
+    if (!senderUid) {
+      return res.status(401).json({
+        success: false,
+        error: "Please log in to transfer coins"
+      });
+    }
+
+    // Update sender cache from body if provided
+    if (bodySender && bodySender.uid) {
+      const existing = serverUsers.get(bodySender.uid);
+      serverUsers.set(bodySender.uid, {
+        uid: bodySender.uid,
+        displayName: bodySender.displayName || existing?.displayName,
+        email: bodySender.email || existing?.email,
+        gameUid: bodySender.gameUid || existing?.gameUid,
+        username: bodySender.username || existing?.username,
+        balance: typeof bodySender.balance === 'number' ? bodySender.balance : (existing?.balance ?? 0)
+      });
+    }
+
+    // 1. Validation: recipient required
+    const targetRecipient = (typeof recipient === 'string' ? recipient.trim() : '');
+    if (!targetRecipient) {
+      return res.status(400).json({
+        success: false,
+        error: "Recipient is required"
+      });
+    }
+
+    // 2. Validation: minimum amount 10
+    const cleanAmount = Number(amount);
+    if (isNaN(cleanAmount) || cleanAmount < 10) {
+      return res.status(400).json({
+        success: false,
+        error: "Minimum transfer amount is 10 coins (₹10)"
+      });
+    }
+
+    // 3. 10% Fee computed server-side
+    const feePercent = 10;
+    const feeAmount = Math.round(cleanAmount * 0.10 * 100) / 100;
+    const totalHold = Math.round((cleanAmount + feeAmount) * 100) / 100;
+
+    // Fetch RTDB users if token available to have latest directory
+    if (token) {
+      const rtdbUsers = await fetchRtdbUsers(token);
+      if (rtdbUsers) {
+        for (const [uid, u] of Object.entries<any>(rtdbUsers)) {
+          if (u && typeof u === 'object') {
+            serverUsers.set(uid, {
+              uid,
+              displayName: u.displayName || u.username,
+              email: u.email,
+              gameUid: u.gameUid,
+              username: u.username,
+              balance: Number(u.balance || 0)
+            });
+          }
+        }
+      }
+    }
+
+    // Verify sender
+    const senderUser = serverUsers.get(senderUid) || {
+      uid: senderUid,
+      displayName: bodySender?.displayName || 'Sender',
+      email: bodySender?.email || '',
+      gameUid: bodySender?.gameUid || '',
+      balance: Number(bodySender?.balance || 0)
+    };
+
+    // 2. Validation: amount cannot exceed balance
+    if (cleanAmount > senderUser.balance) {
+      return res.status(400).json({
+        success: false,
+        error: "Amount cannot exceed available balance"
+      });
+    }
+
+    // Check balance for amount + fee
+    if (totalHold > senderUser.balance) {
+      return res.status(400).json({
+        success: false,
+        error: `Insufficient balance! Total required is ₹${totalHold.toFixed(2)} (including 10% transfer fee).`
+      });
+    }
+
+    // 4. Resolve recipient by UID, email, or game ID
+    const searchTarget = targetRecipient.toLowerCase();
+
+    // Block sending to yourself
+    if (
+      targetRecipient === senderUid ||
+      (senderUser.email && searchTarget === senderUser.email.toLowerCase()) ||
+      (senderUser.gameUid && searchTarget === senderUser.gameUid.toLowerCase())
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: "You cannot transfer coins to yourself"
+      });
+    }
+
+    let resolvedRecipient: ServerUserProfile | null = null;
+
+    // Direct UID match
+    if (serverUsers.has(targetRecipient)) {
+      resolvedRecipient = serverUsers.get(targetRecipient)!;
+    } else {
+      for (const u of serverUsers.values()) {
+        if (u.uid === senderUid) continue;
+        if (
+          (u.email && u.email.toLowerCase() === searchTarget) ||
+          (u.gameUid && u.gameUid.toLowerCase() === searchTarget) ||
+          (u.username && u.username.toLowerCase() === searchTarget) ||
+          (u.displayName && u.displayName.toLowerCase() === searchTarget)
+        ) {
+          resolvedRecipient = u;
+          break;
+        }
+      }
+    }
+
+    // If still not found, check direct RTDB node if token is present
+    if (!resolvedRecipient && token) {
+      try {
+        const directSnap = await fetch(`${FIREBASE_RTDB_URL}/users/${encodeURIComponent(targetRecipient)}.json?auth=${encodeURIComponent(token)}`);
+        if (directSnap.ok) {
+          const directUser = await directSnap.json();
+          if (directUser && typeof directUser === 'object') {
+            resolvedRecipient = {
+              uid: targetRecipient,
+              displayName: directUser.displayName || directUser.username,
+              email: directUser.email,
+              gameUid: directUser.gameUid,
+              username: directUser.username,
+              balance: Number(directUser.balance || 0)
+            };
+            serverUsers.set(targetRecipient, resolvedRecipient);
+          }
+        }
+      } catch (e) {
+        console.warn("RTDB direct user lookup notice:", e);
+      }
+    }
+
+    // Block unknown recipient
+    if (!resolvedRecipient) {
+      return res.status(404).json({
+        success: false,
+        error: "Recipient not found. Check UID, Email or Game ID"
+      });
+    }
+
+    // Block sending to yourself if matched by email/game ID
+    if (resolvedRecipient.uid === senderUid) {
+      return res.status(400).json({
+        success: false,
+        error: "You cannot transfer coins to yourself"
+      });
+    }
+
+    // 4. Hold the amount and fee from the sender's balance until approval
+    const newSenderBalance = Math.max(0, Math.round((senderUser.balance - totalHold) * 100) / 100);
+    senderUser.balance = newSenderBalance;
+    serverUsers.set(senderUid, senderUser);
+
+    // Save update to RTDB
+    if (token) {
+      fetch(`${FIREBASE_RTDB_URL}/users/${encodeURIComponent(senderUid)}.json?auth=${encodeURIComponent(token)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ balance: newSenderBalance })
+      }).catch(e => console.warn("Failed to persist held balance to RTDB:", e));
+    }
+
+    // 4. Save transfer request with status "pending"
+    const transferId = `tr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const newTransfer: ServerTransferRecord = {
+      id: transferId,
+      senderUid,
+      senderName: senderUser.displayName || senderUser.email?.split('@')[0] || 'Sender',
+      senderEmail: senderUser.email || '',
+      senderGameUid: senderUser.gameUid,
+      receiverUid: resolvedRecipient.uid,
+      receiverName: resolvedRecipient.displayName || resolvedRecipient.email?.split('@')[0] || resolvedRecipient.gameUid || 'Friend',
+      receiverEmail: resolvedRecipient.email || '',
+      receiverGameUid: resolvedRecipient.gameUid,
+      amount: cleanAmount,
+      feePercent,
+      feeAmount,
+      totalHold,
+      status: 'pending',
+      note: typeof note === 'string' ? note.trim().slice(0, 80) : '',
+      createdAt: Date.now()
+    };
+
+    serverTransfers.set(transferId, newTransfer);
+
+    // Persist transfer request to RTDB
+    if (token) {
+      fetch(`${FIREBASE_RTDB_URL}/transferRequests/${transferId}.json?auth=${encodeURIComponent(token)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...newTransfer,
+          timestamp: newTransfer.createdAt,
+          grossAmount: cleanAmount,
+          netAmount: cleanAmount
+        })
+      }).catch(e => console.warn("Failed to persist transferRequest to RTDB:", e));
+    }
+
+    return res.json({
+      success: true,
+      transfer: newTransfer,
+      newBalance: newSenderBalance
+    });
+  } catch (error: any) {
+    console.error("Error in POST /api/transfers:", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Failed to process transfer request"
+    });
+  }
+});
+
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

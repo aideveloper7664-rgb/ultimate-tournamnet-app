@@ -99,7 +99,7 @@ export function applyTheme(themeId: string) {
       "--text-secondary": sub,
       "--accent-color": accent,
       "--border-color": isLight
-        ? `color-mix(in srgb, ${accent} 40%, #cbd5e1)`
+        ? "#cbd5e1"
         : `color-mix(in srgb, ${accent} 22%, transparent)`
     };
 

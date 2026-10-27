@@ -134,7 +134,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       'scratchcard-section',
       'lottery-section',
       'shop-section',
-      'tutorials-section'
+      'tutorials-section',
+      'level-rewards-section'
     ];
     const isLoggedIn = !!auth.currentUser;
 

@@ -13,6 +13,7 @@ import { RechargePage } from './pages/RechargePage';
 import { EarningsPage } from './pages/EarningsPage';
 import { LeaderboardPage } from './pages/LeaderboardPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { LevelRewardsPage } from './pages/LevelRewardsPage';
 
 import { PolicyModal } from './modals/PolicyModal';
 import { ChangePasswordModal } from './modals/ChangePasswordModal';
@@ -192,6 +193,7 @@ const AppContent: React.FC = () => {
                 onOpenP2PTransfer={() => setIsP2PTransferOpen(true)}
               />
             )}
+            {currentSection === 'level-rewards-section' && <LevelRewardsPage />}
           </>
         )}
       </main>

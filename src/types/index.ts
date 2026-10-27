@@ -15,6 +15,8 @@ export interface UserProfile {
   createdAt: number | object;
   referralCode: string;
   joinedTournaments?: Record<string, boolean>;
+  joinedMatchSlots?: Record<string, (string | number)[]>;
+  registrations?: Record<string, any>;
   isAdmin?: boolean;
   lastCheckedNotifications?: number;
   lastLogin?: number | object;
@@ -67,6 +69,7 @@ export interface Tournament {
   roomId?: string;
   roomPassword?: string;
   showIdPass?: boolean;
+  accessCode?: string;
 }
 
 export interface Game {

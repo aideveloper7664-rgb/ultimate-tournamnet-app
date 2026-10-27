@@ -125,9 +125,12 @@ export const RechargePage: React.FC = () => {
                 <button
                   key={preset}
                   type="button"
-                  className={`btn btn-sm py-2.5 rounded-3 fw-bold transition shadow-sm ${amount === preset ? 'btn-gradient bg-gradient text-white border-0 shadow' : 'btn-dark text-warning border border-warning border-opacity-40'}`}
-                  onClick={() => setAmount(preset)}
-                  style={{ fontSize: '0.9rem', background: amount === preset ? 'linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)' : undefined }}
+                  className="btn btn-sm py-2.5 rounded-3 fw-bold transition shadow-sm btn-dark text-warning border border-warning border-opacity-40"
+                  onClick={() => {
+                    setAmount(preset);
+                    setShowHamroPayCheckout(true);
+                  }}
+                  style={{ fontSize: '0.9rem' }}
                 >
                   ₹ {preset}
                 </button>
@@ -146,7 +149,7 @@ export const RechargePage: React.FC = () => {
             onClick={handleProceedToPayment}
             style={{ fontSize: '1rem' }}
           >
-            Proceed to Payment <i className="bi bi-arrow-right ms-2"></i>
+            Pay Now (Instant Redirect) <i className="bi bi-shield-lock-fill ms-2"></i>
           </button>
         </div>
       </div>

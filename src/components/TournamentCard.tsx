@@ -41,7 +41,9 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
   
   const isJoined = !!(currentUser && userProfile?.joinedTournaments?.[tId]);
   const userRegistration = currentUser ? regP[currentUser.uid] : null;
-  const userSlots = userRegistration?.slots || [];
+  const userSlots = (userRegistration?.slots && userRegistration.slots.length > 0)
+    ? userRegistration.slots
+    : (userProfile?.joinedMatchSlots?.[tId] || userProfile?.registrations?.[tId]?.slots || []);
 
   const canJoin = !isJoined && !isFull && status === 'upcoming';
 
@@ -180,7 +182,9 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
               <span>Entry Fee</span>
             </div>
             <div className={`stat-value ${eFee > 0 ? 'entry-paid' : 'entry-free'}`}>
-              {eFee > 0 ? `₹${eFee}` : 'FREE'}
+              {eFee > 0 ? `₹${eFee}` : (
+                <span title="Access Code required to join">FREE 🔒</span>
+              )}
             </div>
           </div>
         </div>
@@ -262,7 +266,7 @@ export const TournamentCard: React.FC<TournamentCardProps> = ({
               onClick={handleSlotBookingTrigger}
             >
               <i className="bi bi-lightning-charge-fill"></i>
-              <span>{eFee > 0 ? `Join (₹${eFee})` : 'Join Free'}</span>
+              <span>{eFee > 0 ? `Join (₹${eFee})` : 'Join Free 🔑'}</span>
             </button>
           ) : (
             <button type="button" className="btn btn-action-card btn-card-disabled" disabled>

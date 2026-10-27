@@ -240,7 +240,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           <button
             type="button"
             className="btn btn-sm btn-dark w-100 py-1.5 rounded-3 d-flex align-items-center justify-content-center gap-1.5 text-warning fw-bold border border-warning border-opacity-30 extra-small"
-            onClick={() => setIsLevelRewardsOpen(true)}
+            onClick={() => showSection('level-rewards-section')}
           >
             <i className="bi bi-gift-fill"></i> Level Milestone Rewards ({totalXp} XP)
           </button>

@@ -16,7 +16,7 @@ export const SlotSelectionModal: React.FC<SlotSelectionModalProps> = ({
   onClose,
   onConfirmSlots
 }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const [takenSlots, setTakenSlots] = useState<Record<string | number, any>>({});
   const [registeredPlayers, setRegisteredPlayers] = useState<Record<string, RegisteredPlayer>>({});
   const [selectedSlots, setSelectedSlots] = useState<(string | number)[]>([]);
@@ -77,8 +77,25 @@ export const SlotSelectionModal: React.FC<SlotSelectionModalProps> = ({
       try {
         if (snapshot.exists()) {
           const tData = snapshot.val();
-          setTakenSlots(tData.slots || {});
-          setRegisteredPlayers(tData.registeredPlayers || {});
+          const tSlots = { ...(tData.slots || {}) };
+          const tRegPlayers = { ...(tData.registeredPlayers || {}) };
+
+          if (currentUser && userProfile?.joinedTournaments?.[tournament.id]) {
+            const mySlots = userProfile.joinedMatchSlots?.[tournament.id] || [];
+            mySlots.forEach((s: any) => {
+              if (!tSlots[s]) tSlots[s] = currentUser.uid;
+            });
+            if (!tRegPlayers[currentUser.uid]) {
+              tRegPlayers[currentUser.uid] = userProfile.registrations?.[tournament.id] || {
+                username: userProfile.username || userProfile.displayName || 'Me',
+                gameUid: userProfile.gameUid || 'N/A',
+                slots: mySlots
+              };
+            }
+          }
+
+          setTakenSlots(tSlots);
+          setRegisteredPlayers(tRegPlayers);
         } else {
           setTakenSlots({});
           setRegisteredPlayers({});

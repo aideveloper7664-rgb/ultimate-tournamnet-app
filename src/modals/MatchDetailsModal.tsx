@@ -30,8 +30,25 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
         const snapshot = await get(tRef);
         if (snapshot.exists()) {
           const tData = snapshot.val();
-          setTakenSlots(tData.slots || {});
-          setRegisteredPlayers(tData.registeredPlayers || {});
+          const tSlots = { ...(tData.slots || {}) };
+          const tRegPlayers = { ...(tData.registeredPlayers || {}) };
+
+          if (currentUser && userProfile?.joinedTournaments?.[tournament.id]) {
+            const mySlots = userProfile.joinedMatchSlots?.[tournament.id] || [];
+            mySlots.forEach((s: any) => {
+              if (!tSlots[s]) tSlots[s] = currentUser.uid;
+            });
+            if (!tRegPlayers[currentUser.uid]) {
+              tRegPlayers[currentUser.uid] = userProfile.registrations?.[tournament.id] || {
+                username: userProfile.username || userProfile.displayName || 'Me',
+                gameUid: userProfile.gameUid || 'N/A',
+                slots: mySlots
+              };
+            }
+          }
+
+          setTakenSlots(tSlots);
+          setRegisteredPlayers(tRegPlayers);
         }
       } catch (err) {
         console.error("Error fetching match slots:", err);
@@ -186,7 +203,7 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
                     <div className="match-stat-card match-stat-blue">
                       <span className="lbl">Entry Fee</span>
                       <strong className="val">
-                        {tournament.entryFee > 0 ? `₹${tournament.entryFee}` : 'FREE'}
+                        {tournament.entryFee > 0 ? `₹${tournament.entryFee}` : 'FREE 🔒'}
                       </strong>
                     </div>
                   </div>
@@ -213,50 +230,65 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({
                   </div>
                 </div>
 
+                {/* Free Match Access Code Alert */}
+                {(!tournament.entryFee || tournament.entryFee === 0) && (
+                  <div
+                    className="p-3 rounded-3 d-flex align-items-center gap-2.5"
+                    style={{ background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.35)', color: '#FCD34D' }}
+                  >
+                    <i className="bi bi-key-fill fs-5 text-warning flex-shrink-0"></i>
+                    <div className="small" style={{ fontSize: '0.8rem' }}>
+                      <strong className="text-white">Admin Access Code Required:</strong> To join this free tournament, you must enter the secret access code set by the admin.
+                    </div>
+                  </div>
+                )}
+
                 {/* Schedule & Map Pill */}
                 <div
-                  className="p-3.5 rounded-4 d-flex flex-wrap align-items-center justify-content-between gap-3"
+                  className="p-4 rounded-4 d-flex flex-wrap align-items-center justify-content-between gap-3 shadow-sm"
                   style={{ background: '#1A1D26', border: '1px solid #272B38' }}
                 >
                   <div className="d-flex align-items-center gap-3">
                     <div
-                      className="rounded-3 d-flex align-items-center justify-content-center p-2.5"
-                      style={{ background: '#262A37', color: '#6CC4FF', width: '44px', height: '44px' }}
+                      className="rounded-3 d-flex align-items-center justify-content-center"
+                      style={{ background: '#262A37', color: '#6CC4FF', width: '48px', height: '48px', fontSize: '1.2rem', boxShadow: '0 4px 12px rgba(108, 196, 255, 0.15)' }}
                     >
-                      <i className="bi bi-calendar3 fs-5"></i>
+                      <i className="bi bi-calendar3"></i>
                     </div>
                     <div>
-                      <div className="extra-small fw-bold tracking-wider" style={{ color: '#9EA4B8' }}>START TIME</div>
-                      <div className="fw-bold text-white small">{sTimeLoc}</div>
+                      <div className="extra-small fw-bold text-uppercase" style={{ color: '#9EA4B8', letterSpacing: '0.8px', fontSize: '0.7rem' }}>START TIME</div>
+                      <div className="fw-bold text-white small mt-0.5" style={{ fontSize: '0.88rem' }}>{sTimeLoc}</div>
                     </div>
                   </div>
                   <div className="d-flex align-items-center gap-3">
                     <div
-                      className="rounded-3 d-flex align-items-center justify-content-center p-2.5"
-                      style={{ background: '#262A37', color: '#FFC61A', width: '44px', height: '44px' }}
+                      className="rounded-3 d-flex align-items-center justify-content-center"
+                      style={{ background: '#262A37', color: '#FFC61A', width: '48px', height: '48px', fontSize: '1.2rem', boxShadow: '0 4px 12px rgba(255, 198, 26, 0.15)' }}
                     >
-                      <i className="bi bi-geo-alt-fill fs-5"></i>
+                      <i className="bi bi-geo-alt-fill"></i>
                     </div>
                     <div>
-                      <div className="extra-small fw-bold tracking-wider" style={{ color: '#9EA4B8' }}>MAP LOCATION</div>
-                      <div className="fw-bold text-warning small" style={{ color: '#FFC61A' }}>{tournament.map || 'Erangel / Bermuda'}</div>
+                      <div className="extra-small fw-bold text-uppercase" style={{ color: '#9EA4B8', letterSpacing: '0.8px', fontSize: '0.7rem' }}>MAP LOCATION</div>
+                      <div className="fw-bold small mt-0.5" style={{ color: '#FFC61A', fontSize: '0.88rem' }}>{tournament.map || 'Erangel / Bermuda'}</div>
                     </div>
                   </div>
                 </div>
 
                 {/* Match Rules Card */}
                 <div>
-                  <h6 className="fw-bold mb-2 small uppercase tracking-wider" style={{ color: '#FFC61A' }}>
-                    Match Rules & Guidelines
+                  <h6 className="fw-bold mb-2.5 small uppercase tracking-wider d-flex align-items-center gap-2" style={{ color: '#FFC61A', letterSpacing: '0.5px' }}>
+                    <i className="bi bi-journal-text"></i> Match Rules & Guidelines
                   </h6>
                   <div
-                    className="p-3.5 rounded-4 small"
+                    className="p-4 rounded-4 small shadow-sm"
                     style={{
                       background: '#1A1D26',
                       border: '1px solid #272B38',
                       color: '#F5F6FA',
                       whiteSpace: 'pre-wrap',
-                      lineHeight: 1.65
+                      lineHeight: 1.75,
+                      fontSize: '0.9rem',
+                      letterSpacing: '0.2px'
                     }}
                   >
                     {desc}

@@ -1,68 +1,43 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 
 export const BottomNav: React.FC = () => {
   const { currentSection, showSection } = useAuth();
 
-  const navRef = useRef<HTMLElement | null>(null);
-  const c0Ref = useRef<SVGSVGElement | null>(null);
-  const c1Ref = useRef<SVGSVGElement | null>(null);
-  const bumpRef = useRef<HTMLElement | null>(null);
+  const navRef = useRef<HTMLElement>(null);
+  const c0Ref = useRef<SVGSVGElement>(null);
+  const c1Ref = useRef<SVGSVGElement>(null);
+  const bumpRef = useRef<HTMLElement>(null);
   const btnRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  const mainRef = useRef<number>(0);
-  const curRef = useRef<number>(2); // Default to home (index 2)
-  const busyRef = useRef<boolean>(false);
+  const mainRef = useRef(0);
+  const curRef = useRef(2); // default Home
+  const busyRef = useRef(false);
   const targetRef = useRef<number | null>(null);
   const timersRef = useRef<any[]>([]);
   const animsRef = useRef<Animation[]>([]);
 
-  const getEffectiveIndex = (sec: string) => {
-    switch (sec) {
-      case 'leaderboard-section':
-        return 0; // Stats
-      case 'my-contests-section':
-        return 1; // Announcements
-      case 'home-section':
-      case 'tournaments-section':
-        return 2; // Home
-      case 'wallet-section':
-      case 'recharge-section':
-      case 'earnings-section':
-        return 3; // Wallet
-      case 'profile-section':
-        return 4; // Profile
-      default:
-        return 2;
-    }
-  };
-
-  const navSections = [
-    'leaderboard-section',
-    'my-contests-section',
-    'home-section',
-    'wallet-section',
-    'profile-section'
-  ];
-
-  const W = () => (navRef.current ? navRef.current.offsetWidth / 5 : 86);
-  const px = (i: number) => (i + 0.5) * W() - 85;
+  const W = useCallback(() => (navRef.current ? navRef.current.offsetWidth / 5 : 86), []);
+  const px = useCallback((i: number) => (i + 0.5) * W() - 85, [W]);
   const GREY = '#8e8e9c';
-  const CY = () => {
-    if (typeof window !== 'undefined') {
-      const val = getComputedStyle(document.body).getPropertyValue('--accent').trim();
-      if (val) return val;
+  const CY = useCallback(() => {
+    if (typeof document !== 'undefined') {
+      return getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#19e6ff';
     }
     return '#19e6ff';
-  };
+  }, []);
 
-  const place = () => {
+  const place = useCallback(() => {
     const cv = [c0Ref.current, c1Ref.current];
-    const curCurve = cv[mainRef.current];
-    if (curCurve) {
-      curCurve.style.transform = `translateX(${px(curRef.current)}px)`;
+    if (cv[mainRef.current]) {
+      cv[mainRef.current]!.style.transform = `translateX(${px(curRef.current)}px)`;
     }
-  };
+  }, [px]);
+
+  useEffect(() => {
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, [place]);
 
   const A = (el: Element, kf: Keyframe[] | PropertyIndexedKeyframes, o: KeyframeAnimationOptions) => {
     const a = el.animate(kf, { fill: 'both', ...o });
@@ -74,51 +49,36 @@ export const BottomNav: React.FC = () => {
     timersRef.current.push(setTimeout(f, ms));
   };
 
-  const tl = (el: Element, list: [number, Keyframe, string?][], t0: number) => {
+  const tl = (el: Element, list: [number, Keyframe, (string | undefined)?][], t0: number) => {
     const D = list[list.length - 1][0];
-    const kf: Keyframe[] = list.map(([t, pr, e]) => ({
-      offset: D > 0 ? t / D : 0,
+    const kf = list.map(([t, pr, e]) => ({
+      offset: t / D,
       ...pr,
       ...(e ? { easing: e } : {})
     }));
     return A(el, kf, { duration: D, delay: t0, easing: 'ease-out' });
   };
 
-  const finalize = () => {
+  const finalize = useCallback(() => {
     timersRef.current.forEach(clearTimeout);
     timersRef.current = [];
     animsRef.current.forEach(a => {
-      try {
-        a.cancel();
-      } catch (e) {}
+      try { a.cancel(); } catch {}
     });
     animsRef.current = [];
 
     const cv = [c0Ref.current, c1Ref.current];
-    const curMain = mainRef.current;
-    if (cv[curMain]) cv[curMain]!.classList.remove('hide');
-    if (cv[curMain ^ 1]) cv[curMain ^ 1]!.classList.add('hide');
+    const main = mainRef.current;
+    if (cv[main]) cv[main]!.classList.remove('hide');
+    if (cv[main ^ 1]) cv[main ^ 1]!.classList.add('hide');
 
-    const tgt = targetRef.current !== null ? targetRef.current : curRef.current;
-    curRef.current = tgt;
-
-    btnRefs.current.forEach((btn, k) => {
-      if (!btn) return;
-      btn.classList.remove('tap');
-      btn.classList.toggle('on', k === tgt);
-      const svg = btn.querySelector('svg');
-      if (svg) {
-        if (k === tgt) {
-          svg.style.transform = 'translateY(-15px) scale(1.12)';
-          svg.style.fill = 'var(--accent)';
-          svg.style.color = 'var(--accent)';
-          svg.style.filter = 'drop-shadow(0 0 6px var(--accent))';
-        } else {
-          svg.style.transform = 'translateY(0) scale(1)';
-          svg.style.fill = '#fff';
-          svg.style.color = '#fff';
-          svg.style.filter = 'none';
-        }
+    if (targetRef.current !== null) {
+      curRef.current = targetRef.current;
+    }
+    btnRefs.current.forEach((x, k) => {
+      if (x) {
+        x.classList.remove('tap');
+        x.classList.toggle('on', k === curRef.current);
       }
     });
 
@@ -126,28 +86,18 @@ export const BottomNav: React.FC = () => {
     if (bumpRef.current) bumpRef.current.style.opacity = '0';
     place();
     busyRef.current = false;
-  };
+  }, [place]);
 
-  const setNav = (i: number, first?: boolean) => {
+  const setNav = useCallback((i: number, first = false) => {
+    const cv = [c0Ref.current, c1Ref.current];
+    const navEl = navRef.current;
+    const bump = bumpRef.current;
+    if (!navEl || !bump || !cv[0] || !cv[1]) return;
+
     if (first) {
       curRef.current = i;
-      btnRefs.current.forEach((btn, k) => {
-        if (!btn) return;
-        btn.classList.toggle('on', k === i);
-        const svg = btn.querySelector('svg');
-        if (svg) {
-          if (k === i) {
-            svg.style.transform = 'translateY(-15px) scale(1.12)';
-            svg.style.fill = 'var(--accent)';
-            svg.style.color = 'var(--accent)';
-            svg.style.filter = 'drop-shadow(0 0 6px var(--accent))';
-          } else {
-            svg.style.transform = 'translateY(0) scale(1)';
-            svg.style.fill = '#fff';
-            svg.style.color = '#fff';
-            svg.style.filter = 'none';
-          }
-        }
+      btnRefs.current.forEach((x, k) => {
+        if (x) x.classList.toggle('on', k === i);
       });
       place();
       return;
@@ -158,61 +108,58 @@ export const BottomNav: React.FC = () => {
 
     busyRef.current = true;
     targetRef.current = i;
-
     const o = curRef.current;
     const d = Math.sign(i - o);
     const k = Math.abs(i - o);
     const w = W();
     const cx = (j: number) => (j + 0.5) * w;
-
-    const cv = [c0Ref.current, c1Ref.current];
-    const oldC = cv[mainRef.current];
+    const oldC = cv[mainRef.current]!;
     mainRef.current ^= 1;
-    const newC = cv[mainRef.current];
+    const newC = cv[mainRef.current]!;
     const cyan = CY();
 
-    if (newC) {
-      newC.style.transform = `translateX(${px(i)}px)`;
-    }
-    if (navRef.current) navRef.current.classList.add('anim');
+    newC.style.transform = `translateX(${px(i)}px)`;
+    navEl.classList.add('anim');
 
-    // Tapped icon turns cyan immediately
-    const tappedBtn = btnRefs.current[i];
-    if (tappedBtn) tappedBtn.classList.add('tap');
+    if (btnRefs.current[i]) btnRefs.current[i]!.classList.add('tap');
+
+    // Map tab index to target app screen
+    const sectionMap = [
+      'leaderboard-section',
+      'my-contests-section',
+      'home-section',
+      'wallet-section',
+      'profile-section'
+    ];
+    showSection(sectionMap[i]);
 
     const P = 110;
     const sd = k <= 2 ? 120 : 90;
     const Td = P + k * sd + 30;
     const D = Td + 640;
-
     const svg = (j: number) => btnRefs.current[j]?.querySelector('svg');
 
-    // Old notch collapses
-    const oldBtn = btnRefs.current[o];
-    if (oldBtn) oldBtn.classList.remove('on');
-
-    if (oldC) {
-      const disc = oldC.querySelector('.disc');
-      const dip = oldC.querySelector('.dip');
-      if (disc) {
-        A(disc, [{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(.6)' }], { duration: 70, delay: P });
-      }
-      if (dip) {
-        A(dip, [
-          { transform: 'scale(1,1)', opacity: 1 },
-          { transform: 'scale(1.3,.22)', opacity: 0.9, offset: 0.5 },
-          { transform: 'scale(1.5,.08)', opacity: 0 }
-        ], { duration: 260, delay: P, easing: 'cubic-bezier(.25,.8,.3,1)' });
-      }
+    /* old notch: collapses */
+    if (btnRefs.current[o]) btnRefs.current[o]!.classList.remove('on');
+    const oldDisc = oldC.querySelector('.disc');
+    if (oldDisc) {
+      A(oldDisc, [{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(.6)' }], { duration: 70, delay: P });
+    }
+    const oldDip = oldC.querySelector('.dip');
+    if (oldDip) {
+      A(oldDip, [
+        { transform: 'scale(1,1)', opacity: 1 },
+        { transform: 'scale(1.3,.22)', opacity: 0.9, offset: 0.5 },
+        { transform: 'scale(1.5,.08)', opacity: 0 }
+      ], { duration: 260, delay: P, easing: 'cubic-bezier(.25,.8,.3,1)' });
     }
 
-    // Travelling bump
+    /* travelling bump */
     const mids: number[] = [];
     for (let s = 1; s <= k; s++) {
       mids.push((cx(o + (s - 1) * d) + cx(o + s * d)) / 2 - 9);
     }
-
-    const bl: [number, Keyframe, string?][] = [
+    const bl: [number, Keyframe, (string | undefined)?][] = [
       [0, { transform: `translateX(${mids[0]}px) scale(.2)`, opacity: 0 }],
       [0.3 * sd, { transform: `translateX(${mids[0]}px) scale(1)`, opacity: 1 }]
     ];
@@ -223,12 +170,9 @@ export const BottomNav: React.FC = () => {
       bl.push([s * sd, { transform: `translateX(${mids[s - 1]}px) scale(1)`, opacity: 1 }]);
     }
     bl.push([k * sd + 30, { transform: `translateX(${cx(i) - 9}px) scale(.5)`, opacity: 0 }]);
+    tl(bump, bl, P);
 
-    if (bumpRef.current) {
-      tl(bumpRef.current, bl, P);
-    }
-
-    // Icons: pushed down while the wave is next to them
+    /* icons: pushed down while the wave is next to them */
     for (let j = 0; j < 5; j++) {
       const stg: number[] = [];
       for (let s = 1; s <= k; s++) {
@@ -241,26 +185,22 @@ export const BottomNav: React.FC = () => {
       const last = Math.max(...stg);
       const ps = (first - 1) * sd + (isO ? 0 : 0.2 * sd);
       const pe = last * sd;
-
-      const start: Keyframe = isO
+      const start = isO
         ? { transform: 'translateY(-15px) scale(1.12)', fill: cyan, opacity: 1 }
         : isN
         ? { transform: 'translateY(0) scale(1)', fill: cyan, opacity: 1 }
         : { transform: 'translateY(0) scale(1)', fill: '#fff', opacity: 1 };
-
-      const sunk: Keyframe = {
+      const sunk = {
         transform: 'translateY(34px) scale(.9)',
         fill: isN ? cyan : GREY,
         opacity: isN ? 0.55 : 0.8
       };
-
-      const L: [number, Keyframe, string?][] = [
+      const L: [number, Keyframe, (string | undefined)?][] = [
         [0, start],
         [ps, start],
         [ps + 60, sunk],
         [pe, sunk]
       ];
-
       if (isN) {
         L.push(
           [pe + 30, { transform: 'translateY(34px) scale(.8)', fill: cyan, opacity: 0.5 }],
@@ -273,80 +213,85 @@ export const BottomNav: React.FC = () => {
           [pe + 190, { transform: 'translateY(0) scale(1)', fill: '#fff', opacity: 1 }]
         );
       }
-
       const targetSvg = svg(j);
-      if (targetSvg) {
-        tl(targetSvg, L, P);
-      }
+      if (targetSvg) tl(targetSvg, L, P);
     }
 
-    // New notch grows with a bounce at the destination
-    if (newC) {
-      newC.classList.remove('hide');
-      const newDip = newC.querySelector('.dip');
-      const newDisc = newC.querySelector('.disc');
-      if (newDip) {
-        A(newDip, [
-          { transform: 'scale(1,.04)', opacity: 0 },
-          { transform: 'scale(1,.06)', opacity: 1, offset: 0.04 },
-          { transform: 'scale(1,1.1)', opacity: 1, offset: 0.62 },
-          { transform: 'scale(1,1)', opacity: 1 }
-        ], { duration: 430, delay: Td, easing: 'ease-out' });
-      }
-      if (newDisc) {
-        A(newDisc, [
-          { transform: 'translateY(16px) scale(.7)', opacity: 0 },
-          { transform: 'translateY(14px) scale(.78)', opacity: 1, offset: 0.18 },
-          { transform: 'translateY(-4px) scale(1.04)', opacity: 1, offset: 0.7 },
-          { transform: 'translateY(0) scale(1)', opacity: 1 }
-        ], { duration: 460, delay: Td, easing: 'ease-out' });
-      }
+    /* new notch grows with a bounce at the destination */
+    newC.classList.remove('hide');
+    const newDip = newC.querySelector('.dip');
+    if (newDip) {
+      A(newDip, [
+        { transform: 'scale(1,.04)', opacity: 0 },
+        { transform: 'scale(1,.06)', opacity: 1, offset: 0.04 },
+        { transform: 'scale(1,1.1)', opacity: 1, offset: 0.62 },
+        { transform: 'scale(1,1)', opacity: 1 }
+      ], { duration: 430, delay: P + Td - P + 0, easing: 'ease-out' });
     }
-
+    const newDisc = newC.querySelector('.disc');
+    if (newDisc) {
+      A(newDisc, [
+        { transform: 'translateY(16px) scale(.7)', opacity: 0 },
+        { transform: 'translateY(14px) scale(.78)', opacity: 1, offset: 0.18 },
+        { transform: 'translateY(-4px) scale(1.04)', opacity: 1, offset: 0.7 },
+        { transform: 'translateY(0) scale(1)', opacity: 1 }
+      ], { duration: 460, delay: Td, easing: 'ease-out' });
+    }
     T(finalize, D);
-  };
+  }, [CY, W, finalize, place, px, showSection]);
 
-  // Mount initialization & resize listener
+  // Sync with currentSection when navigating externally
   useEffect(() => {
-    const initialIndex = getEffectiveIndex(currentSection);
-    setNav(initialIndex, true);
-
-    const onResize = () => {
-      place();
-    };
-
-    window.addEventListener('resize', onResize);
-
-    return () => {
-      window.removeEventListener('resize', onResize);
-      timersRef.current.forEach(clearTimeout);
-      animsRef.current.forEach(a => {
-        try {
-          a.cancel();
-        } catch (e) {}
-      });
-    };
-  }, []);
-
-  // Sync when currentSection changes from outside (e.g. In-app navigation)
-  useEffect(() => {
-    const targetIdx = getEffectiveIndex(currentSection);
-    if (targetIdx !== curRef.current && !busyRef.current) {
-      setNav(targetIdx);
+    let targetIdx = 2;
+    switch (currentSection) {
+      case 'leaderboard-section':
+        targetIdx = 0;
+        break;
+      case 'my-contests-section':
+        targetIdx = 1;
+        break;
+      case 'home-section':
+      case 'tournaments-section':
+        targetIdx = 2;
+        break;
+      case 'wallet-section':
+      case 'recharge-section':
+      case 'earnings-section':
+        targetIdx = 3;
+        break;
+      case 'profile-section':
+      case 'level-rewards-section':
+      case 'earn-section':
+      case 'spinwheel-section':
+      case 'scratchcard-section':
+      case 'lottery-section':
+      case 'shop-section':
+      case 'tutorials-section':
+        targetIdx = 4;
+        break;
+      default:
+        targetIdx = 2;
     }
-  }, [currentSection]);
+
+    if (!busyRef.current && curRef.current !== targetIdx) {
+      setNav(targetIdx, true);
+    }
+  }, [currentSection, setNav]);
+
+  // Initial place on mount
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      place();
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [place]);
 
   if (currentSection === 'login-section') {
     return null;
   }
 
-  const handleTabClick = (index: number) => {
-    showSection(navSections[index]);
-    setNav(index);
-  };
-
   return (
-    <nav className="nav" id="nav" ref={navRef}>
+    <nav className="nav" id="nav" ref={navRef} role="navigation" aria-label="Curve Wave Navigation">
       <svg className="curve" id="c0" ref={c0Ref} viewBox="0 0 170 60">
         <path className="dip" d="M0 0C30 0 40 8 52 28C62 45 72 56 85 56C98 56 108 45 118 28C130 8 140 0 170 0Z" />
         <circle className="disc" cx="85" cy="20" r="24" />
@@ -355,13 +300,13 @@ export const BottomNav: React.FC = () => {
         <path className="dip" d="M0 0C30 0 40 8 52 28C62 45 72 56 85 56C98 56 108 45 118 28C130 8 140 0 170 0Z" />
         <circle className="disc" cx="85" cy="20" r="24" />
       </svg>
-      <i className="bump" id="bump" ref={bumpRef as any} />
+      <i className="bump" id="bump" ref={bumpRef}></i>
 
       <button
+        ref={el => (btnRefs.current[0] = el)}
         data-v="stats"
         aria-label="Stats"
-        ref={el => { btnRefs.current[0] = el; }}
-        onClick={() => handleTabClick(0)}
+        onClick={() => setNav(0)}
       >
         <svg className="i" viewBox="0 0 24 24">
           <path d="M3 20V10h4v10zm7 0V4h4v16zm7 0v-7h4v7z" />
@@ -369,16 +314,16 @@ export const BottomNav: React.FC = () => {
       </button>
 
       <button
+        ref={el => (btnRefs.current[1] = el)}
         data-v="news"
         aria-label="Announcements"
-        ref={el => { btnRefs.current[1] = el; }}
-        onClick={() => handleTabClick(1)}
+        onClick={() => setNav(1)}
       >
         <svg className="i" viewBox="0 0 24 24">
           <path
-            d="M2 9.5v4.5h3l5 4V5.5L5 9.5zM17.5 5.5l1.7-1.7M18.5 10h2.5M17.5 14.5l1.7 1.7"
+            d="M2 9.500v4.500h3l5 4V5.500L5 9.500zM17.500 5.500l1.700-1.700M18.500 10h2.500M17.500 14.500l1.700 1.700"
             stroke="#fff"
-            strokeWidth="1.8"
+            strokeWidth="1.800"
             strokeLinecap="round"
             style={{ stroke: 'currentColor' }}
           />
@@ -386,10 +331,11 @@ export const BottomNav: React.FC = () => {
       </button>
 
       <button
+        ref={el => (btnRefs.current[2] = el)}
         data-v="home"
+        className="on"
         aria-label="Home"
-        ref={el => { btnRefs.current[2] = el; }}
-        onClick={() => handleTabClick(2)}
+        onClick={() => setNav(2)}
       >
         <svg className="i" viewBox="0 0 24 24">
           <path d="M12 3l9 8h-3v9h-5v-6h-2v6H6v-9H3z" />
@@ -397,10 +343,10 @@ export const BottomNav: React.FC = () => {
       </button>
 
       <button
+        ref={el => (btnRefs.current[3] = el)}
         data-v="wallet"
         aria-label="Wallet"
-        ref={el => { btnRefs.current[3] = el; }}
-        onClick={() => handleTabClick(3)}
+        onClick={() => setNav(3)}
       >
         <svg className="i" viewBox="0 0 24 24">
           <path d="M3 6a2 2 0 0 1 2-2h14v3H5v1h16v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zm14 8a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z" />
@@ -408,14 +354,14 @@ export const BottomNav: React.FC = () => {
       </button>
 
       <button
+        ref={el => (btnRefs.current[4] = el)}
         data-v="me"
         aria-label="Profile"
-        ref={el => { btnRefs.current[4] = el; }}
-        onClick={() => handleTabClick(4)}
+        onClick={() => setNav(4)}
       >
         <svg className="i" viewBox="0 0 24 24">
           <circle cx="12" cy="7" r="4.5" />
-          <path d="M3 21c0-5 4-7.5 9-7.5s9 2.5 9 7.5z" />
+          <path d="M3 21c0-5 4-7.500 9-7.500s9 2.500 9 7.500z" />
         </svg>
       </button>
     </nav>
